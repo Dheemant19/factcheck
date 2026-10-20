@@ -1,5 +1,7 @@
 # Data, models and caches are re-created by the scripts; never commit them.
-/data/
+# The fixed split files (T03) are the exception: every machine must use the same splits.
+/data/*
+!/data/splits/
 /outputs/
 /logs/
 results/predictions/

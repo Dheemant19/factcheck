@@ -17,6 +17,7 @@ are stubs whose docstring names the owner and task. What works today:
 * `scripts/check_env.py`, `scripts/smoke_test.py` and `jobs/setup_cluster.sh`: environment check, a tiny
   DistilBERT training run, and GPU-server setup (T02). Tested machines are in `docs/environments.md`.
 * `app/app.py`: the Streamlit app, with designed empty states until models and results exist.
+* `factcheck.data`: `load_splits(name)` for all five datasets, with fixed split files (T03).
 
 ## Who owns what
 
@@ -111,8 +112,47 @@ Create New Token), put `kaggle.json` in `~/.kaggle/` or set `KAGGLE_USERNAME` an
 | D4 `isot` | Kaggle `clmentbisaillon/fake-and-real-news-dataset` (login needed) |
 | D5 `climate_fever` | Hugging Face `tdiggelm/climate_fever` (test only) |
 
-`data/` is not committed. Cleaning and the fixed splits are code (T03); the ISOT split ID
-files will be committed to the repo so every machine uses identical splits.
+`data/` is not committed, except `data/splits/` (below).
+
+### Loading a dataset
+
+```python
+from factcheck.data import load_splits, get_dataset
+
+splits = load_splits("liar")                   # {"train": df, "validation": df, "test": df}
+splits = load_splits("covid", variant="clean") # clean = URLs and @mentions masked (COVID);
+                                               # shortcut-removed ISOT arrives with T13
+info = get_dataset("liar")                     # labels, label2id, fake_label_ids, max_length
+```
+
+Every DataFrame starts with the same columns: `id`, `text` (model input), `text_raw` (as
+published), `label`, `label_name`, `binary_label` (1 = false/fake, 0 = true/real, -1 = not
+used in cross-domain tests) and `in_llm_subset`. Extra columns per dataset: `meta_*` (LIAR),
+`main_text` and `explanation` (PUBHEALTH), `evidence` (Climate-FEVER), `subject` and `date`
+(ISOT). **Never feed `explanation`, `subject` or `date` to a model**: they give the answer away.
+
+| Dataset | Labels (class id order) | train / validation / test |
+|---|---|---|
+| `covid` | real, fake | 6,420 / 2,140 / 2,140 |
+| `liar` | pants-fire, false, barely-true, half-true, mostly-true, true | 10,269 / 1,284 / 1,283 |
+| `pubhealth` | false, mixture, true, unproven | 9,804 / 1,214 / 1,233 |
+| `isot` | real, fake | 30,926 / 3,866 / 3,866 (2,000 of test in the LLM subset) |
+| `climate_fever` | supports, refutes, not_enough_info, disputed | 0 / 0 / 1,535 (test only) |
+
+**Fixed splits.** Which row is in which split is stored in `data/splits/<dataset>.csv`
+(`id, split, in_llm_subset`), committed to the repo, so the cluster and every laptop use
+identical rows; loading checks the raw data against it and fails loudly if they differ.
+COVID, LIAR and PUBHEALTH keep their official splits. ISOT is split 80/10/10, stratified,
+seed 42, with a stratified 2,000-article test subset for the 8B LLM runs. The files were made
+once with `python scripts/make_splits.py`; `--check` verifies them against your download.
+
+**Data decisions.** PUBHEALTH: 41 rows with label -1 (broken in the source) are dropped.
+ISOT: 5,793 exact duplicates are dropped, and so are 447 articles with an empty body (all but
+one of them fake, so keeping them would teach "title only means fake"); 38,658 remain. COVID
+ids restart at 1 in each official file, so our ids are `train-17`, `validation-17`, and so on.
+Cleaning is light (encoding repair, HTML, whitespace; no lower-casing), and the prepared
+tables are cached in `data/cache/datasets/`, so ISOT loads in under a second after the first
+time. Tests: `pytest tests/test_data.py`.
 
 ## The app
 

@@ -25,6 +25,9 @@ def _env_path(var: str, default: Path) -> Path:
 
 PROJECT_ROOT = _env_path("FACTCHECK_ROOT", Path(__file__).resolve().parents[1])
 CONFIG_DIR = PROJECT_ROOT / "configs"
+# Fixed split files (id -> train/validation/test) are committed, so they always live in the
+# repo, even when FACTCHECK_DATA_DIR moves the raw data elsewhere.
+SPLITS_DIR = PROJECT_ROOT / "data" / "splits"
 
 DATA_DIR = _env_path("FACTCHECK_DATA_DIR", PROJECT_ROOT / "data")
 RAW_DIR = DATA_DIR / "raw"
