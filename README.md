@@ -30,10 +30,8 @@ Task IDs (T01 to T51) and deadlines are in plan Section 20.
 
 ## Setup
 
-You need Python 3.11 or newer (the pinned versions need it) and, for training, an NVIDIA GPU. Everything
-also installs on a CPU-only machine, which is enough for the app, the notebooks and the tests.
-The commands below use `pip`; [uv](https://docs.astral.sh/uv/) works too if you prefer it
-(put `uv` in front of each `pip` command).
+You need Python 3.11 or newer (the pinned versions need it) and `pip`. Training needs an NVIDIA
+GPU; a CPU-only machine is enough for the app, the notebooks and the tests.
 
 **1. Create and activate a virtual environment** (or use conda, if that is what you have):
 
@@ -49,7 +47,7 @@ is not in the requirements. Pick the command for your system on
 Newer GPUs (RTX 50-series) need a CUDA 12.8 or newer build. For example:
 
 ```bash
-pip install torch --index-url https://download.pytorch.org/whl/cu128   # NVIDIA, CUDA 12.8
+pip install torch --index-url https://download.pytorch.org/whl/cu130   # NVIDIA, CUDA 13.0 build
 pip install torch --index-url https://download.pytorch.org/whl/cpu    # CPU only (Windows, Linux)
 pip install torch                                                     # macOS (Apple silicon uses MPS)
 ```
@@ -145,3 +143,7 @@ factcheck/
 * One branch per task, a pull request reviewed by another member, then merge.
 * Tuning sees validation only; each final model is scored on test once.
 * Log every piece of work in `docs/contribution_log.md`.
+* New dependency: add it to `pyproject.toml` (in `dependencies` or the right extra), then pin the
+  version you tested in `requirements.txt` (`pip show <package>` prints it), so everyone can
+  reproduce with `pip install -r requirements.txt`. Refresh the full freeze with
+  `pip freeze --exclude-editable > requirements-lock.txt`.

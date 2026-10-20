@@ -38,7 +38,7 @@ def main() -> None:
     if arch not in torch.cuda.get_arch_list():
         print(
             f"WARNING: this torch build has no kernels for {arch}. RTX 50-series needs a "
-            "CUDA 12.8+ build: pip install torch --index-url https://download.pytorch.org/whl/cu128"
+            "CUDA 12.8+ build: pip install torch --index-url https://download.pytorch.org/whl/cu130"
         )
         return
 

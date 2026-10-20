@@ -30,7 +30,7 @@ Runs locally on a laptop RTX 5060 (8 GB). Models are found under `outputs/<run>/
 - Working today: verdict, confidence and response time from any trained encoder; the results explorer. Evidence, Why, Compare and Shortcut demo are not built yet.
 - Confirmed: unfinished panels get designed empty states that say what will appear and who or what fills it; no fabricated numbers.
 - Confirmed: styling uses the native Streamlit theme (`.streamlit/config.toml`) and native components only, no custom CSS.
-- Streamlit 1.66, Python 3.11, environment managed with uv.
+- Streamlit 1.66, Python 3.11, installed with pip.
 
 ## Evidence on Hand
 
