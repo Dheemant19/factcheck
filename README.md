@@ -14,7 +14,8 @@ This is the skeleton. The layout follows plan Section 16; modules that are not w
 are stubs whose docstring names the owner and task. What works today:
 
 * `scripts/download_data.py`: downloads all five datasets (T02). **ISOT needs a Kaggle login.**
-* `scripts/check_env.py` and `jobs/setup_cluster.sh`: environment check and GPU-server setup (T02).
+* `scripts/check_env.py`, `scripts/smoke_test.py` and `jobs/setup_cluster.sh`: environment check, a tiny
+  DistilBERT training run, and GPU-server setup (T02). Tested machines are in `docs/environments.md`.
 * `app/app.py`: the Streamlit app, with designed empty states until models and results exist.
 
 ## Who owns what
@@ -43,7 +44,8 @@ source .venv/bin/activate          # Windows PowerShell: .venv\Scripts\Activate.
 **2. Install PyTorch for your machine.** The right build depends on your GPU and driver, so it
 is not in the requirements. Pick the command for your system on
 [pytorch.org/get-started](https://pytorch.org/get-started/locally/). For an NVIDIA GPU, run
-`nvidia-smi` first: the "CUDA Version" it shows is the newest CUDA build your driver supports.
+`nvidia-smi` first: the "CUDA Version" (newer drivers: "CUDA UMD Version") it shows is the
+newest CUDA build your driver supports, so pick a PyTorch build at or below it.
 Newer GPUs (RTX 50-series) need a CUDA 12.8 or newer build. For example:
 
 ```bash
@@ -58,6 +60,16 @@ pip install torch                                                     # macOS (A
 pip install -r requirements.txt    # pinned versions we tested, plus this package (editable)
 python scripts/check_env.py        # checks the GPU, bf16 and 4-bit support
 ```
+
+**4. Prove the machine can train** (needs the COVID data, see Data below):
+
+```bash
+python scripts/download_data.py covid
+python scripts/smoke_test.py       # tiny DistilBERT run, about a minute; --cpu without a GPU
+```
+
+It should print PASS (validation accuracy well above 0.80). Add your machine to
+`docs/environments.md`.
 
 `requirements.txt` pins the direct dependencies so runs reproduce; `requirements-lock.txt` is
 a full freeze of one working environment (Windows, CUDA 13.2) for reference. To install the
@@ -128,7 +140,7 @@ factcheck/
 │   ├── explain.py          SHAP, UMAP, calibration
 │   ├── results.py          runs.csv
 │   └── paths.py            every path, overridable by environment variable
-├── scripts/                download_data.py, check_env.py
+├── scripts/                download_data.py, check_env.py, smoke_test.py
 ├── jobs/                   setup_cluster.sh, gpu0.sh ... gpu3.sh
 ├── notebooks/              01_eda, 02_results, 03_interpretation
 ├── app/app.py              Streamlit Fact-Check Lab

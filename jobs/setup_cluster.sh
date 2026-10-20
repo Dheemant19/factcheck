@@ -7,7 +7,9 @@ set -euo pipefail
 
 PYTHON=${PYTHON:-python3}
 
-driver_cuda=$(nvidia-smi | sed -n 's/.*CUDA Version: \([0-9]*\.[0-9]*\).*/\1/p' | head -1)
+# Newer drivers print "CUDA UMD Version", older ones "CUDA Version".
+driver_cuda=$(nvidia-smi | sed -n 's/.*CUDA \(UMD \)\{0,1\}Version: *\([0-9]*\.[0-9]*\).*/\2/p' | head -1)
+[ -n "$driver_cuda" ] || { echo "Could not read the CUDA version from nvidia-smi" >&2; exit 1; }
 echo "Driver supports CUDA ${driver_cuda}"
 pick() { awk -v v="$driver_cuda" -v t="$1" 'BEGIN { exit !(v + 0 >= t + 0) }'; }
 if   pick 13.2; then wheel=cu132
@@ -28,3 +30,4 @@ pip install -r requirements.txt
 # Keep models and datasets on the server's disk, not in a home quota you might hit.
 grep -q HF_HOME ~/.bashrc || echo 'export HF_HOME=~/hf_cache' >> ~/.bashrc
 python scripts/check_env.py
+echo "Next: python scripts/download_data.py && python scripts/smoke_test.py"
