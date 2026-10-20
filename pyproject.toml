@@ -9,8 +9,7 @@ description = "EE6405 group project: deep learning for misinformation detection 
 readme = "README.md"
 requires-python = ">=3.10"
 # PyTorch is NOT listed here on purpose: the right wheel depends on the GPU and driver
-# (cu128+ for the RTX 5060 laptop, whatever nvidia-smi allows on the MLDA cluster).
-# Install torch first, then `uv pip install -e .`. See README "Setup".
+# (see pytorch.org/get-started). Install torch first, then `pip install -e .`. See README "Setup".
 dependencies = [
     "transformers>=4.56",
     "datasets>=3.0",

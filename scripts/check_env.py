@@ -1,4 +1,4 @@
-"""Check that this machine can run the project (day-one test on the laptop and the cluster).
+"""Check that this machine can run the project (run it on every new machine).
 
     python scripts/check_env.py
 
@@ -38,7 +38,7 @@ def main() -> None:
     if arch not in torch.cuda.get_arch_list():
         print(
             f"WARNING: this torch build has no kernels for {arch}. RTX 50-series needs a "
-            "CUDA 12.8+ build: uv pip install torch --index-url https://download.pytorch.org/whl/cu132"
+            "CUDA 12.8+ build: pip install torch --index-url https://download.pytorch.org/whl/cu128"
         )
         return
 

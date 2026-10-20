@@ -10,7 +10,7 @@ ISOT NEEDS A KAGGLE LOGIN. It is only published on Kaggle, so before downloading
      this downloads kaggle.json;
   2. either put kaggle.json in ~/.kaggle/ (Windows: C:\\Users\\<you>\\.kaggle\\), or set
      KAGGLE_USERNAME and KAGGLE_KEY from it (see .env.example);
-  3. uv pip install kagglehub
+  3. pip install kagglehub
 Without a login, download the zip by hand from
 https://www.kaggle.com/datasets/clmentbisaillon/fake-and-real-news-dataset and put Fake.csv and
 True.csv in data/raw/isot/. The other four datasets need no login.
@@ -134,7 +134,7 @@ def get_isot(raw_dir: Path) -> None:
         import kagglehub
     except ImportError as err:
         raise RuntimeError(
-            "ISOT is on Kaggle and needs a Kaggle login: `uv pip install kagglehub` and set up "
+            "ISOT is on Kaggle and needs a Kaggle login: `pip install kagglehub` and set up "
             "your Kaggle API token (~/.kaggle/kaggle.json or KAGGLE_USERNAME/KAGGLE_KEY). " + manual
         ) from err
     try:

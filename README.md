@@ -14,7 +14,7 @@ This is the skeleton. The layout follows plan Section 16; modules that are not w
 are stubs whose docstring names the owner and task. What works today:
 
 * `scripts/download_data.py`: downloads all five datasets (T02). **ISOT needs a Kaggle login.**
-* `scripts/check_env.py` and `jobs/setup_cluster.sh`: laptop and cluster environment checks (T02).
+* `scripts/check_env.py` and `jobs/setup_cluster.sh`: environment check and GPU-server setup (T02).
 * `app/app.py`: the Streamlit app, with designed empty states until models and results exist.
 
 ## Who owns what
@@ -30,33 +30,54 @@ Task IDs (T01 to T51) and deadlines are in plan Section 20.
 
 ## Setup
 
-PyTorch is installed separately because the right build depends on the GPU. We use
-[uv](https://docs.astral.sh/uv/), not plain pip.
+You need Python 3.11 or newer (the pinned versions need it) and, for training, an NVIDIA GPU. Everything
+also installs on a CPU-only machine, which is enough for the app, the notebooks and the tests.
+The commands below use `pip`; [uv](https://docs.astral.sh/uv/) works too if you prefer it
+(put `uv` in front of each `pip` command).
 
-### Laptop
+**1. Create and activate a virtual environment** (or use conda, if that is what you have):
 
-```powershell
-uv venv --python 3.11
-.venv\Scripts\Activate.ps1
-uv pip install torch --index-url https://download.pytorch.org/whl/cu132   # RTX 50-series needs cu128 or newer
-uv pip install -r requirements.txt                                      # pinned versions + this package
-python scripts\check_env.py                                              # GPU, bf16 and 4-bit checks
+```bash
+python -m venv .venv
+source .venv/bin/activate          # Windows PowerShell: .venv\Scripts\Activate.ps1
 ```
 
-`requirements.txt` pins the direct dependencies; `requirements-laptop.lock.txt` is the full
-freeze of the working laptop environment. `uv pip install -e ".[all]"` installs unpinned.
+**2. Install PyTorch for your machine.** The right build depends on your GPU and driver, so it
+is not in the requirements. Pick the command for your system on
+[pytorch.org/get-started](https://pytorch.org/get-started/locally/). For an NVIDIA GPU, run
+`nvidia-smi` first: the "CUDA Version" it shows is the newest CUDA build your driver supports.
+Newer GPUs (RTX 50-series) need a CUDA 12.8 or newer build. For example:
 
-### MLDA cluster (4x RTX 3090)
+```bash
+pip install torch --index-url https://download.pytorch.org/whl/cu128   # NVIDIA, CUDA 12.8
+pip install torch --index-url https://download.pytorch.org/whl/cpu    # CPU only (Windows, Linux)
+pip install torch                                                     # macOS (Apple silicon uses MPS)
+```
 
-Connect with the NTU VPN on, then:
+**3. Install the project:**
+
+```bash
+pip install -r requirements.txt    # pinned versions we tested, plus this package (editable)
+python scripts/check_env.py        # checks the GPU, bf16 and 4-bit support
+```
+
+`requirements.txt` pins the direct dependencies so runs reproduce; `requirements-lock.txt` is
+a full freeze of one working environment (Windows, CUDA 13.2) for reference. To install the
+latest compatible versions instead, use `pip install -e ".[all]"`, or a smaller set of extras
+such as `pip install -e ".[app]"` (see `pyproject.toml`).
+
+### On a shared GPU server
+
+The same steps work on any Linux GPU server. Clone the repo there and download data and
+models on the server itself rather than copying them over (copying over a VPN is slow):
 
 ```bash
 git clone https://github.com/Dheemant19/factcheck.git && cd factcheck
-bash jobs/setup_cluster.sh        # uv, .venv (Python 3.11), torch for the driver's CUDA, package
-source .venv/bin/activate
+bash jobs/setup_cluster.sh         # optional: steps 1-3 above, picking torch from nvidia-smi
 ```
 
-Download data and models on the server itself (scp over the VPN is slow).
+Long runs go in the job lists `jobs/gpu0.sh` to `jobs/gpu3.sh`, one per GPU (instructions at
+the top of each file).
 
 ## Data
 
@@ -68,7 +89,7 @@ python scripts/download_data.py --glove     # GloVe 6B 300-d for the Bi-LSTM (86
 
 **ISOT needs a Kaggle login.** Make a Kaggle account, create an API token (Settings > API >
 Create New Token), put `kaggle.json` in `~/.kaggle/` or set `KAGGLE_USERNAME` and `KAGGLE_KEY`
-(see `.env.example`), and `uv pip install kagglehub`. Or download the zip from
+(see `.env.example`), and `pip install kagglehub`. Or download the zip from
 [Kaggle](https://www.kaggle.com/datasets/clmentbisaillon/fake-and-real-news-dataset) and put
 `Fake.csv` and `True.csv` in `data/raw/isot/`. The other four datasets need no login.
 
@@ -97,7 +118,7 @@ It finds trained models under `outputs/<run>/seed<N>/model` and results in `resu
 factcheck/
 ├── README.md
 ├── pyproject.toml          pip install -e .
-├── requirements.txt        pinned versions for reproducibility
+├── requirements.txt        pinned versions for reproducibility (requirements-lock.txt: full freeze)
 ├── configs/                one YAML per run (template.yaml)
 ├── factcheck/              the reusable package
 │   ├── data/               loaders behind a registry; cleaning; shortcut removal

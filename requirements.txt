@@ -1,8 +1,8 @@
-# Pinned direct dependencies for reproducing our runs (versions tested on the RTX 5060 laptop,
-# Python 3.11). Install PyTorch for your GPU first (see README "Setup"), then:
-#   uv pip install -r requirements.txt
-# torch itself is not pinned here because the wheel depends on the GPU and driver; we used
-# torch==2.14.1+cu132. The full transitive freeze is in requirements-laptop.lock.txt.
+# Pinned direct dependencies, so runs reproduce (tested with Python 3.11).
+# Install PyTorch for your machine first (see README "Setup"), then:
+#   pip install -r requirements.txt
+# torch is not pinned here because the right build depends on the GPU and driver; we tested
+# torch 2.14.1. requirements-lock.txt is a full freeze of one working environment.
 
 # core
 transformers==5.20.1
