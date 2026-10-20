@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # One-time environment setup on a Linux GPU server, using python -m venv and pip.
 # Run from the repository root after `git clone`:   bash jobs/setup_cluster.sh
-# No admin rights needed. (Python 3.11+; set PYTHON=python3.12 to pick one).
+# No admin rights needed. Needs Python 3.11+ (set PYTHON=python3.12 to pick a specific one).
 # Picks the newest PyTorch CUDA wheel the server's driver supports.
 set -euo pipefail
 
