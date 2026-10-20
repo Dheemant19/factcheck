@@ -22,6 +22,12 @@ else wheel=cu118; fi
 echo "Using PyTorch wheel index: ${wheel}"
 
 [ -d .venv ] || "$PYTHON" -m venv .venv
+# A conda Python ships a newer libstdc++ than the system one; without this, whichever loads
+# first wins and imports such as optuna (sqlite3 -> ICU) fail with "CXXABI_1.3.15 not found".
+base_lib="$("$PYTHON" -c 'import sys; print(sys.base_prefix)')/lib"
+if [ -f "$base_lib/libstdc++.so.6" ] && ! grep -q "$base_lib" .venv/bin/activate; then
+  echo "export LD_LIBRARY_PATH=\"$base_lib\${LD_LIBRARY_PATH:+:\$LD_LIBRARY_PATH}\"" >> .venv/bin/activate
+fi
 source .venv/bin/activate
 pip install --upgrade pip
 pip install torch --index-url "https://download.pytorch.org/whl/${wheel}"
