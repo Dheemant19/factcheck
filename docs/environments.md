@@ -21,8 +21,10 @@ pip install torch --index-url https://download.pytorch.org/whl/cu126   # MLDA gp
 * System Python is 3.10, so the venv is built from a conda Python 3.11:
   `conda create -n ee6405 python=3.11 git`, then
   `PYTHON=~/miniforge3/envs/ee6405/bin/python bash jobs/setup_cluster.sh`.
-  The repo lives in `~/factcheck` with its `.venv`; the server has no system `git`, so
-  activate the conda env (`conda activate ee6405`) to get one.
+  The repo lives in `~/factcheck` with its `.venv`.
+* The server has no system `git` (and no sudo): the conda env's git is linked into
+  `~/.local/bin`, so it works in any login shell. The server pulls from GitHub with a
+  read-only deploy key: `cd ~/factcheck && git pull`.
 * `setup_cluster.sh` makes the venv use conda's libstdc++; without it optuna fails to import
   (`CXXABI_1.3.15 not found`).
 * Datasets are in `~/factcheck/data/raw/`, Hugging Face downloads in `~/hf_cache` (`HF_HOME`).
