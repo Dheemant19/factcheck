@@ -24,8 +24,8 @@ PAPER_ROWS = {
     "pubhealth": (9832, 1225, 1235),
     "climate_fever": (0, 0, 1535),
 }
-# ISOT has no official split. 44,898 articles minus 5,793 exact duplicates minus 447
-# empty-body articles leaves 38,658, split 80/10/10.
+# ISOT has no official split. 44,898 articles minus 631 empty-body articles minus 5,609
+# exact duplicates leaves 38,658, split 80/10/10 (docs/m3_isot_and_splits.md).
 ISOT_ROWS = 38_658
 
 ALL = ["covid", "liar", "pubhealth", "isot", "climate_fever"]

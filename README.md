@@ -147,8 +147,9 @@ seed 42, with a stratified 2,000-article test subset for the 8B LLM runs. The fi
 once with `python scripts/make_splits.py`; `--check` verifies them against your download.
 
 **Data decisions.** PUBHEALTH: 41 rows with label -1 (broken in the source) are dropped.
-ISOT: 5,793 exact duplicates are dropped, and so are 447 articles with an empty body (all but
-one of them fake, so keeping them would teach "title only means fake"); 38,658 remain. COVID
+ISOT: 631 articles with an empty body are dropped (630 of them fake, so keeping them would
+teach "title only means fake"), then 5,609 exact duplicates; 38,658 remain. The reasoning
+behind the ISOT cleanup and the 80/10/10 split is in `docs/m3_isot_and_splits.md`. COVID
 ids restart at 1 in each official file, so our ids are `train-17`, `validation-17`, and so on.
 Cleaning is light (encoding repair, HTML, whitespace; no lower-casing), and the prepared
 tables are cached in `data/cache/datasets/`, so ISOT loads in under a second after the first
