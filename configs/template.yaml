@@ -1,0 +1,15 @@
+# Template for one run. Copy this file, fill it in, and keep one file per run.
+run:
+  name: distilbert_covid      # used for outputs/<name>/seed<N>/ and in results/runs.csv
+  seed: 42
+data:
+  dataset: covid              # covid, liar, pubhealth, isot, climate_fever
+  variant: raw                # raw, or clean (shortcut-removed copy, T13)
+model:
+  family: encoder             # lstm, encoder or llm
+  name: distilbert-base-uncased
+  method: full                # full, lora, qlora, zeroshot, knn, rag
+train:
+  learning_rate: 2.0e-5
+  batch_size: 32
+  epochs: 4

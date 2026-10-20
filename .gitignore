@@ -1,0 +1,29 @@
+# Data, models and caches are re-created by the scripts; never commit them.
+/data/
+/outputs/
+/logs/
+results/predictions/
+results/optuna.db
+results/*.lock
+*.ckpt
+*.safetensors
+*.pt
+*.bin
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+.venv/
+venv/
+
+# Local settings
+.env
+.vscode/
+.idea/
+
+# Design-tool workspace (screenshots, decision logs); PRODUCT.md stays tracked
+.impeccable/

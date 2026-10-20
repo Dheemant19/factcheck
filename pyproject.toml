@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "factcheck"
+version = "0.1.0"
+description = "EE6405 group project: deep learning for misinformation detection (encoders, LoRA, retrieval-augmented LLMs)."
+readme = "README.md"
+requires-python = ">=3.10"
+# PyTorch is NOT listed here on purpose: the right wheel depends on the GPU and driver
+# (cu128+ for the RTX 5060 laptop, whatever nvidia-smi allows on the MLDA cluster).
+# Install torch first, then `uv pip install -e .`. See README "Setup".
+dependencies = [
+    "transformers>=4.56",
+    "datasets>=3.0",
+    "accelerate>=1.0",
+    "peft>=0.13",
+    "sentence-transformers>=3.0",
+    "optuna>=4.0",
+    "scikit-learn>=1.4",
+    "scipy>=1.11",
+    "numpy>=1.26",
+    "pandas>=2.1",
+    "pyarrow>=15",
+    "pyyaml>=6.0",
+    "ftfy>=6.2",
+    "sentencepiece>=0.2",  # DeBERTa-v3 and other SentencePiece tokenizers
+    "requests>=2.31",
+    "filelock>=3.12",
+    "tqdm>=4.66",
+    "matplotlib>=3.8",
+]
+
+[project.optional-dependencies]
+llm = ["bitsandbytes>=0.45"]
+explain = ["shap>=0.46", "umap-learn>=0.5"]
+app = ["streamlit>=1.38", "altair>=5.0"]
+kaggle = ["kagglehub>=0.3"]  # ISOT download needs a Kaggle login
+dev = ["pytest>=8", "ruff>=0.6", "black>=24", "jupyter"]
+all = ["factcheck[llm,explain,app,kaggle,dev]"]
+
+[tool.setuptools.packages.find]
+include = ["factcheck*"]
+
+[tool.black]
+line-length = 100
+target-version = ["py310"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

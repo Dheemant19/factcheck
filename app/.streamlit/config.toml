@@ -1,0 +1,62 @@
+# Fact-Check Lab theme: newsroom navy masthead, white work area, rating colours that mean
+# something (red false, orange/yellow mixed, green true) and nothing else. Locked to light
+# so the screen recording for the video always looks the same.
+
+[theme]
+base = "light"
+primaryColor = "#13294b"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#eef2f7"
+textColor = "#13294b"
+linkColor = "#1f5fbf"
+borderColor = "#c5cfdd"
+codeBackgroundColor = "#eef2f7"
+codeTextColor = "#13294b"
+
+redColor = "#c8102e"
+orangeColor = "#e87722"
+yellowColor = "#b98900"
+greenColor = "#2e8540"
+blueColor = "#1f5fbf"
+violetColor = "#6b4fbb"
+grayColor = "#4a5b75"
+
+font = "'Source Sans 3':https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700;800&display=swap"
+codeFont = "'Source Code Pro':https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;500&display=swap"
+baseFontSize = 16
+headingFontSizes = ["2.5rem", "1.6rem", "1.25rem", "1.05rem", "1rem", "0.9rem"]
+headingFontWeights = [800, 700, 700, 600, 600, 600]
+metricValueFontSize = "2rem"
+metricValueFontWeight = 800
+
+baseRadius = "8px"
+buttonRadius = "8px"
+showWidgetBorder = true
+showSidebarBorder = false
+linkUnderline = false
+
+dataframeHeaderBackgroundColor = "#13294b"
+dataframeHeaderTextColor = "#ffffff"
+dataframeBorderColor = "#d6deea"
+chartCategoricalColors = ["#13294b", "#1f5fbf", "#6b4fbb", "#0f7c8c", "#4a5b75", "#8a5a9e", "#5c7ea8"]  # no rating colours: red, orange and green mean verdicts only
+
+paddingTop = "2rem"
+
+[theme.sidebar]
+backgroundColor = "#13294b"
+secondaryBackgroundColor = "#1d3a66"
+codeBackgroundColor = "#1d3a66"
+textColor = "#ffffff"
+codeTextColor = "#ffffff"
+borderColor = "#3a5785"
+primaryColor = "#ffffff"
+linkColor = "#a9c8ff"
+paddingTop = "1.5rem"
+
+[client]
+toolbarMode = "minimal"  # no Deploy button or developer menu in the demo recording
+
+[server]
+# The file watcher walks every transformers module and logs a torchvision traceback for each
+# vision model. Harmless, but noisy in the terminal; restart the app after editing code.
+fileWatcherType = "none"
