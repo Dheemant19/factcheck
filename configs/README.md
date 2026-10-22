@@ -11,3 +11,6 @@ take the plan Section 10 defaults in `factcheck/models/lstm.py`.
 `encoder/` holds the base encoder baselines (T06): DistilBERT and BERT on COVID, LIAR and
 PUBHEALTH. Defaults are in `factcheck/models/encoder.py`. Add `data: {subset: 300}` for a quick
 debug run; the app and the specs check leave subset runs out.
+
+`llm/` holds the prompted Qwen3-8B runs (T07 zero-shot). They train nothing and need a
+cluster GPU (about 17 GB in bf16).

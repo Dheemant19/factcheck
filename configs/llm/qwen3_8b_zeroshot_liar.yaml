@@ -1,0 +1,14 @@
+# T07 zero-shot LLM baseline: Qwen3-8B (thinking off) on liar, label-probability scoring,
+# no training. Needs about 17 GB of GPU memory in bf16, so run it on the cluster.
+run:
+  name: qwen3_8b_zeroshot_liar
+  seed: 42
+data:
+  dataset: liar
+  variant: raw
+model:
+  family: llm
+  name: Qwen/Qwen3-8B
+  method: zeroshot
+train:
+  eval_batch_size: 16
