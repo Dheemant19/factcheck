@@ -128,13 +128,20 @@ def measure_latency_ms(
 
 
 def git_commit() -> str:
-    """Short commit hash, with "-dirty" if tracked files have uncommitted changes (spec S10)."""
+    """Short commit hash, with "-dirty" if tracked files have uncommitted changes (spec S10).
+
+    runs.csv itself is left out of the check: every run writes to it, so it is always changed.
+    """
     try:
         run = lambda *args: subprocess.run(  # noqa: E731
             ["git", *args], cwd=PROJECT_ROOT, capture_output=True, text=True, check=True
         ).stdout.strip()
         commit = run("rev-parse", "--short", "HEAD")
-        return commit + ("-dirty" if run("status", "--porcelain", "--untracked-files=no") else "")
+        return commit + (
+            "-dirty"
+            if run("status", "--porcelain", "--untracked-files=no", "--", ".", ":!results/runs.csv")
+            else ""
+        )
     except (OSError, subprocess.CalledProcessError):
         return ""
 
