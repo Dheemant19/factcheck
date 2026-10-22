@@ -49,7 +49,8 @@ def test_prompts_list_every_label_in_registry_order():
 def test_message_contains_text_and_labels():
     msg = zero_shot_message("Vaccines contain microchips.", "covid")
     assert "Text: Vaccines contain microchips." in msg
-    assert msg.endswith("Answer with exactly one label from: real, fake.")
+    assert "Answer with exactly one label from: real, fake." in msg
+    assert msg.endswith("with no other text or formatting.")
 
 
 @pytest.mark.parametrize("dataset", ["covid", "liar", "pubhealth", "isot"])

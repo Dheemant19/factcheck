@@ -91,12 +91,17 @@ def with_defaults(cfg: dict) -> dict:
 
 
 def zero_shot_message(text: str, dataset: str) -> str:
-    """The user message: task, label definitions, the text, and the answer format."""
+    """The user message: task, label definitions, the text, and the answer format.
+
+    The last sentence matters: without it Qwen3 puts about half its probability on "**" (it
+    wants to bold the answer) on PUBHEALTH, and label coverage drops to 0.53.
+    """
     spec = PROMPTS[dataset]
     definitions = "\n".join(f"- {label}: {meaning}" for label, meaning in spec["labels"].items())
     return (
         f"{spec['task']}\n\nLabels:\n{definitions}\n\nText: {text}\n\n"
-        f"Answer with exactly one label from: {', '.join(spec['labels'])}."
+        f"Answer with exactly one label from: {', '.join(spec['labels'])}. Reply with the label "
+        "only, in lowercase, with no other text or formatting."
     )
 
 
