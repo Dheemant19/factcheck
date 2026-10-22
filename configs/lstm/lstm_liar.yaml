@@ -1,0 +1,15 @@
+# T05 Bi-LSTM baseline on liar. Unlisted settings use the plan Section 10 defaults
+# in factcheck/models/lstm.py (Adam 1e-3, batch 64, up to 15 epochs, hidden 256, dropout 0.3).
+run:
+  name: lstm_liar
+  seed: 42
+data:
+  dataset: liar
+  variant: raw
+model:
+  family: lstm
+  name: bilstm-glove300
+train:
+  learning_rate: 1.0e-3
+  batch_size: 64
+  epochs: 15

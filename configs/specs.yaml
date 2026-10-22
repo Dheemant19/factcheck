@@ -1,0 +1,47 @@
+# The ten specifications of plan Section 4, checked by factcheck.evaluate.check_specs
+# against results/runs.csv (test split, debug subset runs left out).
+#
+# check: what to measure. A metric check filters the runs (dataset, variant, family), averages
+# each config over its seeds, then takes the best config (max for >=, min for <=), or the
+# worst one with `over: all` (every run must pass). `check: hand` specs are verified by hand
+# and shown as "check by hand". Change targets only with the team (T10 reviews S2 to S5).
+- id: S1
+  spec: Algorithms explored
+  target: ">= 2 families"
+  check: {metric: families}
+- id: S2
+  spec: COVID-19 fake news, weighted F1
+  target: ">= 0.95"
+  check: {metric: weighted_f1, dataset: covid, variant: raw}
+- id: S3
+  spec: LIAR, 6-class test accuracy
+  target: ">= 0.28"
+  check: {metric: accuracy, dataset: liar, variant: raw}
+- id: S4
+  spec: PUBHEALTH, 4-class macro-F1
+  target: ">= 0.65"
+  check: {metric: macro_f1, dataset: pubhealth, variant: raw}
+- id: S5
+  spec: ISOT accuracy after removing source shortcuts
+  target: ">= 0.95"
+  check: {metric: accuracy, dataset: isot, variant: clean}
+- id: S6
+  spec: Encoder inference latency on the laptop GPU, per claim
+  target: "<= 50 ms"
+  check: {metric: latency_ms, family: encoder}
+- id: S7
+  spec: Full app response (retrieval + LLM verdict) on the laptop, per claim
+  target: "<= 5 s"
+  check: hand
+- id: S8
+  spec: Demo memory, everything in the app on the GPU
+  target: "<= 8 GB VRAM"
+  check: hand
+- id: S9
+  spec: Training cost, any single run on one cluster GPU
+  target: "<= 6 h"
+  check: {metric: train_hours, over: all}
+- id: S10
+  spec: Reproducibility, every reported number re-runs from one config file and command
+  target: one config, one command
+  check: hand

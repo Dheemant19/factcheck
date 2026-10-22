@@ -14,4 +14,4 @@ run() {  # run <config> [extra args...]
 }
 
 # Example (E1, 3 seeds). Replace with this GPU's share of the queue:
-# run configs/encoder/bert_base_liar.yaml --seeds 13 42 2026
+# run configs/encoder/bert_liar.yaml --seeds 13 42 2026

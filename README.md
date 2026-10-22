@@ -155,6 +155,20 @@ Cleaning is light (encoding repair, HTML, whitespace; no lower-casing), and the 
 tables are cached in `data/cache/datasets/`, so ISOT loads in under a second after the first
 time. Tests: `pytest tests/test_data.py`.
 
+## Training and results
+
+```bash
+python -m factcheck.train --config configs/lstm/lstm_liar.yaml           # one run, seed from the config
+python -m factcheck.train --config configs/lstm/lstm_liar.yaml --seeds 13 42 2026
+python -m factcheck.train --config configs/encoder/bert_liar.yaml          # encoders (T06)
+python -m factcheck.evaluate                                              # logged runs + specs S1-S10
+```
+
+Every run is scored by `factcheck.evaluate` and logged to `results/runs.csv` (one row per run,
+seed and split; re-running a config replaces its rows). Per-row probabilities go to
+`results/predictions/<run>/seed<N>/` (not committed) for ensembles, significance tests and
+calibration curves. Spec targets live in `configs/specs.yaml`.
+
 ## The app
 
 ```bash
