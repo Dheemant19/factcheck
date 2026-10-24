@@ -117,7 +117,9 @@ def cached_embed(
     tmp = path.with_name(f"{path.stem}.{os.getpid()}.tmp.npy")
     np.save(tmp, emb.astype(np.float16))
     os.replace(tmp, path)
-    for old in path.parent.glob(f"{name}-{kind}-*.npy"):  # drop outdated caches
+    # Drop outdated caches. The hash is matched exactly, so "evidence" never matches
+    # "evidence-queries-..." and another process's in-flight .tmp.npy is left alone.
+    for old in path.parent.glob(f"{name}-{kind}-{'?' * 12}.npy"):
         if old != path:
             old.unlink(missing_ok=True)
     return emb

@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from factcheck import retrieval
 from factcheck.data import get_dataset, load_splits
 from factcheck.paths import RAW_DIR
 from factcheck.retrieval import (
@@ -72,6 +73,20 @@ def test_vote_is_a_probability_distribution():
     assert probs.shape == (1, 2)
     assert probs.sum() == pytest.approx(1.0)
     assert probs.argmax() == 1  # nearest claim "vaccines cause autism" is fake
+
+
+def test_rebuilding_a_cache_keeps_other_kinds(tmp_path, monkeypatch):
+    monkeypatch.setattr(retrieval, "RETRIEVAL_DIR", tmp_path)
+    monkeypatch.setattr(retrieval, "embed", lambda texts, prefix="": fake_encoder(list(texts)))
+    retrieval.cached_embed("evidence-queries", "pubhealth", ["1"], ["a claim"])
+    in_flight = tmp_path / "pubhealth-evidence-0123456789ab.999.tmp.npy"
+    in_flight.touch()
+    retrieval.cached_embed("evidence", "pubhealth", ["0"], ["old sentence"])
+    retrieval.cached_embed("evidence", "pubhealth", ["0"], ["new sentence"])
+    names = sorted(p.name for p in tmp_path.iterdir())
+    assert len(names) == 3  # new evidence, the queries cache and the other process's tmp file
+    assert sum(n.startswith("pubhealth-evidence-queries-") for n in names) == 1
+    assert in_flight.exists()
 
 
 def test_isot_queries_use_the_start_of_the_article():
