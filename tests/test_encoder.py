@@ -7,7 +7,13 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from factcheck.models.encoder import encode_texts, softmax, stratified_subset, with_defaults
+from factcheck.models.encoder import (
+    encode_texts,
+    load_model,
+    softmax,
+    stratified_subset,
+    with_defaults,
+)
 
 TINY = "google/bert_uncased_L-2_H-128_A-2"
 
@@ -38,6 +44,20 @@ def test_head_and_tail_truncation(tokenizer):
 def test_short_text_is_not_changed_by_head_and_tail(tokenizer):
     plain = encode_texts(["a short claim"], tokenizer, max_length=512)
     assert encode_texts(["a short claim"], tokenizer, max_length=512, head_tokens=128) == plain
+
+
+def test_fp16_checkpoints_load_with_fp32_weights(tokenizer, tmp_path):
+    """DeBERTa-v3 is saved in fp16; training fp16 weights with AdamW gives NaN on step 1."""
+    import torch
+    from transformers import AutoModelForSequenceClassification
+
+    from factcheck.data import get_dataset
+
+    AutoModelForSequenceClassification.from_pretrained(TINY, num_labels=2).half().save_pretrained(
+        tmp_path
+    )
+    model = load_model(str(tmp_path), get_dataset("covid"))
+    assert {p.dtype for p in model.parameters()} == {torch.float32}
 
 
 def test_softmax_rows_sum_to_one():

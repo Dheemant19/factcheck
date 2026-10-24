@@ -154,6 +154,22 @@ def softmax(logits: np.ndarray) -> np.ndarray:
     return e / e.sum(axis=1, keepdims=True)
 
 
+def load_model(name: str, info: DatasetInfo):  # noqa: ANN201
+    """The pretrained encoder with a fresh classification head, always with fp32 weights.
+
+    transformers 5 loads weights in the dtype they were saved in, and DeBERTa-v3 is saved in
+    fp16: AdamW on fp16 weights turns them into inf/NaN on the first step (eps 1e-8 is 0 in
+    fp16). bf16 is applied by autocast during training, so the weights stay fp32 here.
+    """
+    return AutoModelForSequenceClassification.from_pretrained(
+        name,
+        num_labels=info.num_labels,
+        id2label=info.id2label,
+        label2id=info.label2id,
+        dtype=torch.float32,
+    )
+
+
 def count_trainable(model: torch.nn.Module) -> int:
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
@@ -201,9 +217,7 @@ def train_encoder(cfg: dict) -> dict:
         split: tokenized_split(df, tokenizer, name, max_length, data["head_tokens"])
         for split, df in splits.items()
     }
-    model = AutoModelForSequenceClassification.from_pretrained(
-        name, num_labels=info.num_labels, id2label=info.id2label, label2id=info.label2id
-    )
+    model = load_model(name, info)
     trainable = count_trainable(model)
     print(
         f"{run['name']} seed {seed}: {name} on {info.name} ({info.num_labels} labels), "
