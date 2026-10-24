@@ -171,7 +171,7 @@ Re-run with `python scripts/find_shortcuts.py` and `python -m factcheck.data.lea
 ## Retrieval (T08)
 
 ```bash
-python -m factcheck.retrieval build      # embed and cache everything (GPU: minutes; CPU: about 2 h)
+python -m factcheck.retrieval build      # embed and cache everything (GPU: minutes; CPU: hours)
 python -m factcheck.retrieval check      # example neighbours, kNN-vote accuracy, duplicate flags
 python -m factcheck.train --config configs/knn/knn_liar.yaml   # kNN-vote baseline into runs.csv
 ```

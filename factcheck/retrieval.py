@@ -420,7 +420,8 @@ def show_neighbours(index: ClaimIndex, df: pd.DataFrame, n: int = 3, k: int = 5)
 
 def duplicate_flags(index: ClaimIndex, splits: dict[str, pd.DataFrame]) -> pd.DataFrame:
     """Validation/test claims whose nearest training claim has similarity >= the threshold:
-    likely duplicates of a training claim, handed to T13."""
+    likely duplicates of a training claim, handed to T13. Pass the full train index
+    (``build_claim_index(name, drop_excluded=False)``) to see them before T13's exclusions."""
     flags = []
     for split in ("validation", "test"):
         df = splits[split]
@@ -465,7 +466,7 @@ def check(names: list[str]) -> None:
               f"accuracy {scores['accuracy']:.3f}, macro-F1 {scores['macro_f1']:.3f} "
               f"(majority class {splits['validation']['label'].value_counts(normalize=True).iloc[0]:.3f})")  # fmt: skip
         show_neighbours(index, splits["validation"])
-        flags = duplicate_flags(index, splits)
+        flags = duplicate_flags(build_claim_index(name, drop_excluded=False), splits)
         print(f"  likely duplicates of a train claim (similarity >= {DUPLICATE_THRESHOLD}): "
               f"{len(flags)} ({flags['split'].value_counts().to_dict() if len(flags) else {}})")  # fmt: skip
         all_flags.append(flags)

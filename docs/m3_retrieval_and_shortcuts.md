@@ -48,9 +48,10 @@ Climate-FEVER has no claim index because it has no train split; it is only ever 
 | Evidence sentences: nltk punkt, at least 5 words | Shorter "sentences" are captions, bylines and fragments. |
 | Cache: float16 `.npy` in `data/cache/retrieval/`, file name = hash of model + exact ids + texts | A change in the split, the cleaning or the model rebuilds automatically; an unchanged one loads in seconds. The full train split is always what gets embedded; T13 exclusions are filtered afterwards, so writing exclusions never forces a re-embed. |
 
-**Cost.** On a laptop CPU (no GPU) the whole build took about 2 hours, almost all of it the
-PUBHEALTH evidence sentences. On a cluster GPU it takes minutes. Either way it runs once:
-`python -m factcheck.retrieval build`.
+**Cost.** On a laptop CPU (no GPU) the claim indexes took about 40 minutes (ISOT is most of
+it), but the 370,507 PUBHEALTH evidence sentences took several hours, slower still when the
+laptop was short of memory. On a cluster GPU everything takes minutes, so build the evidence
+there if you can. Either way it runs once: `python -m factcheck.retrieval build`.
 
 ### Does retrieval carry signal? The kNN vote
 
