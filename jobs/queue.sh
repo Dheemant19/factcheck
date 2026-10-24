@@ -29,8 +29,9 @@ while true; do
   [ -n "$line" ] || break
   name=$(basename "${line%% *}" .yaml)
   echo "[$(date '+%F %T')] gpu$gpu start $name"
+  # Appends: one config's seeds can be separate lines that end up on the same GPU.
   # shellcheck disable=SC2086  # the line holds several arguments
-  if python -m factcheck.train --config $line > "logs/${name}_gpu${gpu}.log" 2>&1; then
+  if python -m factcheck.train --config $line >> "logs/${name}_gpu${gpu}.log" 2>&1; then
     echo "[$(date '+%F %T')] gpu$gpu done  $name"
   else
     echo "[$(date '+%F %T')] gpu$gpu FAILED $name (see logs/${name}_gpu${gpu}.log)"

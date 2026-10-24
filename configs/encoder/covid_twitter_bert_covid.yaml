@@ -1,0 +1,17 @@
+# T19 domain model (large, COVID tweets) (E1): digitalepidemiologylab/covid-twitter-bert-v2 on covid.
+# Large-encoder settings from plan Section 10: learning rate 1e-5,
+# effective batch 16, up to 3 epochs; the rest are the defaults in factcheck/models/encoder.py.
+run:
+  name: covid_twitter_bert_covid
+  seed: 42
+data:
+  dataset: covid
+  variant: raw
+model:
+  family: encoder
+  name: digitalepidemiologylab/covid-twitter-bert-v2
+  method: full
+train:
+  learning_rate: 1.0e-5
+  batch_size: 16
+  epochs: 3

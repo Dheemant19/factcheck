@@ -1,0 +1,18 @@
+# T19 large and domain encoders (E1), 3 seeds each. Run with jobs/queue.sh.
+# Longest first. The two ISOT configs (about 3 h and 1.5 h per seed) get one line per seed so
+# their seeds run on different GPUs; tokenise them once before starting (their seeds would
+# otherwise all write the same tokenised-split cache at the same time).
+configs/encoder/deberta_v3_large_isot_clean.yaml --seeds 13
+configs/encoder/deberta_v3_large_isot_clean.yaml --seeds 42
+configs/encoder/deberta_v3_large_isot_clean.yaml --seeds 2026
+configs/encoder/roberta_large_isot_clean.yaml --seeds 13
+configs/encoder/roberta_large_isot_clean.yaml --seeds 42
+configs/encoder/roberta_large_isot_clean.yaml --seeds 2026
+configs/encoder/deberta_v3_large_pubhealth.yaml --seeds 13 42 2026
+configs/encoder/roberta_large_pubhealth.yaml --seeds 13 42 2026
+configs/encoder/covid_twitter_bert_covid.yaml --seeds 13 42 2026
+configs/encoder/deberta_v3_large_liar.yaml --seeds 13 42 2026
+configs/encoder/deberta_v3_large_covid.yaml --seeds 13 42 2026
+configs/encoder/roberta_large_liar.yaml --seeds 13 42 2026
+configs/encoder/roberta_large_covid.yaml --seeds 13 42 2026
+configs/encoder/scibert_pubhealth.yaml --seeds 13 42 2026

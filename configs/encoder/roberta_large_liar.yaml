@@ -1,0 +1,17 @@
+# T19 large encoder (E1): FacebookAI/roberta-large on liar.
+# Large-encoder settings from plan Section 10: learning rate 1e-5,
+# effective batch 16, up to 3 epochs; the rest are the defaults in factcheck/models/encoder.py.
+run:
+  name: roberta_large_liar
+  seed: 42
+data:
+  dataset: liar
+  variant: raw
+model:
+  family: encoder
+  name: FacebookAI/roberta-large
+  method: full
+train:
+  learning_rate: 1.0e-5
+  batch_size: 16
+  epochs: 3
