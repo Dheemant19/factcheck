@@ -33,7 +33,8 @@ ALL = ["covid", "liar", "pubhealth", "isot", "climate_fever"]
 
 @cache
 def splits(name: str, variant: str = "raw") -> dict[str, pd.DataFrame]:
-    return load_splits(name, variant)
+    """The full committed split; T13's train exclusions are tested in test_shortcuts.py."""
+    return load_splits(name, variant, drop_excluded=False)
 
 
 def needs_data(name: str):  # noqa: ANN201

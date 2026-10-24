@@ -1,0 +1,37 @@
+dataset,check,rows_affected,share_of_train,action
+covid,same_text_as_heldout,182,0.0283,excluded from train (data/splits/exclusions.csv)
+covid,near_duplicate_of_heldout,137,0.0213,excluded from train (data/splits/exclusions.csv)
+covid,duplicate_in_train,91,0.0142,excluded from train (data/splits/exclusions.csv)
+covid,validation_text_also_in_test,28,,kept: validation and test are never changed
+liar,near_duplicate_of_heldout,21,0.002,excluded from train (data/splits/exclusions.csv)
+liar,conflicting_labels_in_train,14,0.0014,excluded from train (data/splits/exclusions.csv)
+liar,same_text_as_heldout,12,0.0012,excluded from train (data/splits/exclusions.csv)
+liar,duplicate_in_train,12,0.0012,excluded from train (data/splits/exclusions.csv)
+liar,validation_text_also_in_test,0,,kept: validation and test are never changed
+pubhealth,near_duplicate_of_heldout,13,0.0013,excluded from train (data/splits/exclusions.csv)
+pubhealth,conflicting_labels_in_train,8,0.0008,excluded from train (data/splits/exclusions.csv)
+pubhealth,duplicate_in_train,4,0.0004,excluded from train (data/splits/exclusions.csv)
+pubhealth,same_text_as_heldout,2,0.0002,excluded from train (data/splits/exclusions.csv)
+pubhealth,validation_text_also_in_test,1,,kept: validation and test are never changed
+isot,duplicate_in_train,169,0.0055,excluded from train (data/splits/exclusions.csv)
+isot,same_text_as_heldout,96,0.0031,excluded from train (data/splits/exclusions.csv)
+isot,near_duplicate_of_heldout,70,0.0023,excluded from train (data/splits/exclusions.csv)
+isot,validation_text_also_in_test,7,,kept: validation and test are never changed
+isot,shortcut_rule:agency_dateline,20794,,"removed in variant=clean (fake 0.0%, real 98.1% of articles)"
+isot,shortcut_rule:agency_tag_dash,234,,"removed in variant=clean (fake 0.0%, real 1.1% of articles)"
+isot,shortcut_rule:agency_name,5108,,"removed in variant=clean (fake 1.3%, real 23.0% of articles)"
+isot,shortcut_rule:site_boilerplate,700,,"removed in variant=clean (fake 4.0%, real 0.0% of articles)"
+isot,shortcut_rule:repost_credit,2293,,"removed in variant=clean (fake 13.1%, real 0.0% of articles)"
+isot,shortcut_rule:tweet_signature,4340,,"removed in variant=clean (fake 24.9%, real 0.0% of articles)"
+isot,shortcut_rule:link,4479,,"removed in variant=clean (fake 24.5%, real 1.0% of articles)"
+isot,shortcut_rule:handle,2377,,"removed in variant=clean (fake 12.0%, real 1.3% of articles)"
+isot,shortcut_rule:image_credit,9008,,"removed in variant=clean (fake 51.5%, real 0.1% of articles)"
+isot,shortcut_rule:getty_images,278,,"removed in variant=clean (fake 1.6%, real 0.0% of articles)"
+isot,shortcut_rule:media_tag,6803,,"removed in variant=clean (fake 38.9%, real 0.0% of articles)"
+isot,shortcut_rule:title_prefix,2025,,"removed in variant=clean (fake 11.6%, real 0.0% of articles)"
+isot,shortcut_rule:time_stamp,314,,"removed in variant=clean (fake 0.0%, real 1.5% of articles)"
+isot,shortcut_rule:stripped_nt,13473,,"removed in variant=clean (fake 67.4%, real 8.0% of articles)"
+isot,shortcut_rule:stripped_s,24896,,"removed in variant=clean (fake 91.7%, real 41.9% of articles)"
+isot,shortcut_rule:stripped_contraction,10303,,"removed in variant=clean (fake 51.7%, real 6.0% of articles)"
+covid,social_masking:url,5530,,"masked in variant=clean (fake 32.2%, real 69.4% of posts)"
+covid,social_masking:handle,1983,,"masked in variant=clean (fake 7.9%, real 28.2% of posts)"

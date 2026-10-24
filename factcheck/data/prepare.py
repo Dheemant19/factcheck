@@ -36,6 +36,7 @@ from sklearn.model_selection import train_test_split
 
 from factcheck.data.cleaning import basic_clean
 from factcheck.data.registry import DatasetInfo, get_dataset
+from factcheck.data.shortcuts import clean_shortcuts
 from factcheck.paths import CACHE_DIR, RAW_DIR, SPLITS_DIR
 
 SPLITS = ("train", "validation", "test")
@@ -48,11 +49,16 @@ LLM_SUBSET_SIZE = 2000
 Splits = dict[str, pd.DataFrame]
 
 
-def load_splits(name: str, variant: str = "raw", use_cache: bool = True) -> Splits:
+def load_splits(
+    name: str, variant: str = "raw", use_cache: bool = True, drop_excluded: bool = True
+) -> Splits:
     """Load one dataset in the standard schema, split by its committed split file.
 
     ``variant="raw"`` applies only ``basic_clean``. ``variant="clean"`` also masks URLs and
     @mentions in social-media posts (COVID) and, for ISOT, removes source shortcuts (T13).
+
+    Train rows listed in ``data/splits/exclusions.csv`` (duplicates of a validation/test row,
+    found by T13) are dropped unless ``drop_excluded=False``. Validation and test never change.
 
     The prepared table is cached as parquet in ``CACHE_DIR/datasets/`` (cleaning ISOT takes
     about a minute; reading the cache about a second). The cache key covers the data code,
@@ -68,6 +74,9 @@ def load_splits(name: str, variant: str = "raw", use_cache: bool = True) -> Spli
         df = prepare(info, variant)
         if cache is not None:
             write_cache(df, cache)
+    if drop_excluded:
+        excluded = excluded_ids(name)
+        df = df[~(df["id"].isin(excluded) & (df["split"] == "train"))]
     return {
         split: df[df["split"] == split].drop(columns="split").reset_index(drop=True)
         for split in SPLITS
@@ -99,18 +108,19 @@ def read_raw(name: str) -> pd.DataFrame:
 
 def clean_texts(texts: pd.Series, info: DatasetInfo, variant: str) -> pd.Series:
     """Apply the cleaning for one variant to a column of raw texts."""
-    if variant == "clean" and info.name == "isot":
-        raise NotImplementedError(
-            "variant='clean' for ISOT removes source shortcuts (task T13), which is not "
-            "written yet. Use variant='raw' until then."
-        )
     mask_social = variant == "clean" and info.social_media
-    return texts.map(partial(basic_clean, mask_social=mask_social))
+    cleaned = texts.map(partial(basic_clean, mask_social=mask_social))
+    if variant == "clean" and info.name == "isot":  # source fingerprints (T13)
+        cleaned = cleaned.map(clean_shortcuts)
+    return cleaned
 
 
 # --- cache ----------------------------------------------------------------------------------
 
-CODE_FILES = [Path(__file__).with_name(f) for f in ("cleaning.py", "readers.py", "registry.py")]
+CODE_FILES = [
+    Path(__file__).with_name(f)
+    for f in ("cleaning.py", "readers.py", "registry.py", "shortcuts.py")
+]
 
 
 def cache_path(name: str, variant: str) -> Path:
@@ -147,6 +157,19 @@ def read_cache(path: Path) -> pd.DataFrame:
 
 
 # --- split files ----------------------------------------------------------------------------
+
+
+def exclusions_path() -> Path:
+    return SPLITS_DIR / "exclusions.csv"
+
+
+def excluded_ids(name: str) -> set[str]:
+    """Train ids T13 excluded for one dataset (empty if there is no exclusions file yet)."""
+    path = exclusions_path()
+    if not path.exists():
+        return set()
+    table = pd.read_csv(path, dtype={"dataset": str, "id": str})
+    return set(table.loc[table["dataset"] == name, "id"])
 
 
 def split_path(name: str) -> Path:

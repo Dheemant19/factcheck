@@ -1,0 +1,5 @@
+dataset,variant,val_accuracy,val_macro_f1,top_fake_words,top_real_words
+isot,raw,0.9951,0.995,via video image obama @ this gop just us america breaking getty pic.twitter.com didn watch,reuters said u.s ( ) trump's on washington it's wednesday tuesday don't thursday republican nov
+isot,clean,0.9837,0.9835,gop this us just is obama even mr sen rep hillary america watch american these,said u.s on wednesday tuesday thursday republican nov friday monday minister told presidential spokesman comment
+covid,raw,0.9332,0.9329,coronavirus 19 news corona trump coronavirusfacts factcheck fact claim misinformation president false realdonaldtrump lockdown cure,rt https t.co covid19 drtedros indiafightscorona states data cases today alexismadrigal coronavirusupdates restrictions second reporting
+covid,clean,0.9322,0.932,coronavirus 19 news corona coronavirusfacts trump fact factcheck misinformation claim false president 000 lockdown video,httpurl rt covid19 indiafightscorona states cases data today coronavirusupdates second risk restrictions numbers capacity learn

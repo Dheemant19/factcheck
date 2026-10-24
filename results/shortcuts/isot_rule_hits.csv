@@ -1,0 +1,17 @@
+rule,fake_articles,real_articles,fake_share,real_share
+agency_dateline,0,20480,0.0,0.9812
+agency_tag_dash,0,231,0.0,0.0111
+agency_name,230,4803,0.0132,0.2301
+site_boilerplate,700,0,0.0401,0.0
+repost_credit,2293,0,0.1314,0.0
+tweet_signature,4336,0,0.2485,0.0
+link,4268,199,0.2446,0.0095
+handle,2097,269,0.1202,0.0129
+image_credit,8995,13,0.5155,0.0006
+getty_images,273,5,0.0156,0.0002
+media_tag,6798,2,0.3896,0.0001
+title_prefix,2023,0,0.1159,0.0
+time_stamp,0,310,0.0,0.0149
+stripped_nt,11768,1643,0.6744,0.0787
+stripped_s,16001,8678,0.917,0.4158
+stripped_contraction,9022,1210,0.517,0.058
