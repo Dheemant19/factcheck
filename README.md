@@ -17,7 +17,11 @@ are stubs whose docstring names the owner and task. What works today:
 * `scripts/check_env.py`, `scripts/smoke_test.py` and `jobs/setup_cluster.sh`: environment check, a tiny
   DistilBERT training run, and GPU-server setup (T02). Tested machines are in `docs/environments.md`.
 * `app/app.py`: the Streamlit app, with designed empty states until models and results exist.
-* `factcheck.data`: `load_splits(name)` for all five datasets, with fixed split files (T03).
+* `factcheck.data`: `load_splits(name)` for all five datasets, with fixed split files (T03); the
+  `clean` variant without source shortcuts, and train rows that copy a test row excluded (T13).
+* `factcheck.retrieval`: embedding search over already fact-checked training claims and over
+  evidence sentences, and the kNN-vote baseline (`configs/knn/`) (T08).
+* `notebooks/01_eda.ipynb`: sizes, label balance, token lengths, duplicates, shortcuts (T09).
 
 ## Who owns what
 
@@ -120,8 +124,8 @@ Create New Token), put `kaggle.json` in `~/.kaggle/` or set `KAGGLE_USERNAME` an
 from factcheck.data import load_splits, get_dataset
 
 splits = load_splits("liar")                   # {"train": df, "validation": df, "test": df}
-splits = load_splits("covid", variant="clean") # clean = URLs and @mentions masked (COVID);
-                                               # shortcut-removed ISOT arrives with T13
+splits = load_splits("isot", variant="clean")  # clean = source fingerprints removed (ISOT),
+                                               # URLs and @mentions masked (COVID)
 info = get_dataset("liar")                     # labels, label2id, fake_label_ids, max_length
 ```
 
@@ -154,6 +158,38 @@ ids restart at 1 in each official file, so our ids are `train-17`, `validation-1
 Cleaning is light (encoding repair, HTML, whitespace; no lower-casing), and the prepared
 tables are cached in `data/cache/datasets/`, so ISOT loads in under a second after the first
 time. Tests: `pytest tests/test_data.py`.
+
+**Shortcuts and leakage (T13).** `variant="clean"` removes ISOT's source fingerprints (the
+Reuters dateline, image credits, embedded tweets, links, site boilerplate, stripped
+apostrophes; one named rule each in `factcheck/data/shortcuts.py`), keeping row ids identical
+to `raw`. Train rows that are copies or near-copies of a validation/test row are listed in
+`data/splits/exclusions.csv` and dropped by `load_splits` (validation and test never change;
+`drop_excluded=False` loads the full split). Counts per rule and per check are in
+`results/leakage_report.csv`; the reasoning is in `docs/m3_retrieval_and_shortcuts.md`.
+Re-run with `python scripts/find_shortcuts.py` and `python -m factcheck.data.leakage`.
+
+## Retrieval (T08)
+
+```bash
+python -m factcheck.retrieval build      # embed and cache everything (GPU: minutes; CPU: about 2 h)
+python -m factcheck.retrieval check      # example neighbours, kNN-vote accuracy, duplicate flags
+python -m factcheck.train --config configs/knn/knn_liar.yaml   # kNN-vote baseline into runs.csv
+```
+
+```python
+from factcheck.retrieval import load_claim_index, load_evidence
+
+index = load_claim_index("liar")                   # TRAIN claims only
+hits = index.search_texts(["Says the economy grew 5% last year."], k=8)[0]
+hits[0].text, hits[0].label_name, hits[0].score    # most similar first
+load_evidence("pubhealth").top_k("33456", k=5)     # best 5 sentences of that claim's article
+load_evidence("climate_fever").search_pool(["Polar bears are dying out."], k=5)
+```
+
+Embeddings come from `BAAI/bge-small-en-v1.5` (unit length, so search is one matrix multiply)
+and are cached as float16 in `data/cache/retrieval/`; the cache key includes the exact texts,
+so a change in the data rebuilds it. Only train claims are indexed, so a prompt can never show
+a validation or test verdict.
 
 ## Training and results
 

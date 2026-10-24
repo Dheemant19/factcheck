@@ -174,15 +174,16 @@ mean.
 
 `subject` and `date` are kept as columns for analysis and the app's shortcut demo, but they
 are **never model input**. The Reuters dateline is inside the text itself, so the `raw`
-variant still contains it; removing it is T13's `clean` variant. The gap between raw and
+variant still contains it; T13's `clean` variant removes it, along with the other
+collection fingerprints (`docs/m3_retrieval_and_shortcuts.md`). The gap between raw and
 clean accuracy is the result of experiment E7.
 
-**Near-duplicates are not removed yet.** Exact copies are gone, but a few articles are
-near-copies, such as the same headline with a slightly edited body, or a Reuters story
-updated later. About 60–73 of the 3,866 test articles (about 2%) share an identical headline,
-or a body that matches apart from case and punctuation, with an article in train or
-validation. T13 removes these using embedding similarity (cosine ≥ 0.95) and records them in
-`results/leakage_report.csv`.
+**Near-duplicates (handled in T13).** Exact copies were removed before splitting, but some
+articles are near-copies, such as the same headline with a slightly edited body, or a Reuters
+story updated later. T13 found 335 training articles that copy a validation/test article
+apart from case, punctuation or a few words (embedding similarity ≥ 0.95 and the same
+numbers). They are listed in `data/splits/exclusions.csv` and dropped from train; the test
+split is unchanged. Details in `docs/m3_retrieval_and_shortcuts.md`.
 
 **A random split tests the same news period.** Train and test articles come from the same
 2015–2018 news cycle, so ISOT test scores measure performance on familiar topics and sources.
