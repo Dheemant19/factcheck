@@ -1,0 +1,13 @@
+# T08 kNN-vote baseline on liar: each claim gets the similarity-weighted majority label of its
+# 8 nearest TRAINING claims (bge-small-en-v1.5 embeddings). Nothing is trained; runs on a CPU.
+run:
+  name: knn_bge_small_liar
+  seed: 42
+data:
+  dataset: liar
+  variant: raw
+model:
+  family: knn
+  name: BAAI/bge-small-en-v1.5
+  method: knn_vote
+  k: 8
