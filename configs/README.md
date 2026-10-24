@@ -10,7 +10,10 @@ take the plan Section 10 defaults in `factcheck/models/lstm.py`.
 
 `encoder/` holds the base encoder baselines (T06): DistilBERT and BERT on COVID, LIAR and
 PUBHEALTH. Defaults are in `factcheck/models/encoder.py`. Add `data: {subset: 300}` for a quick
-debug run; the app and the specs check leave subset runs out.
+debug run; the app and the specs check leave subset runs out. T17 adds RoBERTa, DeBERTa-v3-base
+and ModernBERT, and every base encoder on ISOT with source shortcuts removed
+(`*_isot_clean.yaml`, head 128 + tail 382 tokens). Run the whole sweep, 3 seeds each, with
+`jobs/queue.sh jobs/t17_encoders.txt` (one worker per GPU).
 
 `llm/` holds the prompted Qwen3-8B runs (T07 zero-shot). They train nothing and need a
 cluster GPU (about 17 GB in bf16).

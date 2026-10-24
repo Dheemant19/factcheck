@@ -1,0 +1,22 @@
+# T17 base encoder sweep (E1): 5 encoders x 4 datasets x 3 seeds. Run with jobs/queue.sh.
+# Longest first (ISOT: 29k articles at 512 tokens), so the short runs fill the gaps at the end.
+configs/encoder/deberta_v3_base_isot_clean.yaml --seeds 13 42 2026
+configs/encoder/roberta_isot_clean.yaml --seeds 13 42 2026
+configs/encoder/bert_isot_clean.yaml --seeds 13 42 2026
+configs/encoder/modernbert_isot_clean.yaml --seeds 13 42 2026
+configs/encoder/distilbert_isot_clean.yaml --seeds 13 42 2026
+configs/encoder/deberta_v3_base_pubhealth.yaml --seeds 13 42 2026
+configs/encoder/deberta_v3_base_liar.yaml --seeds 13 42 2026
+configs/encoder/deberta_v3_base_covid.yaml --seeds 13 42 2026
+configs/encoder/roberta_pubhealth.yaml --seeds 13 42 2026
+configs/encoder/bert_pubhealth.yaml --seeds 13 42 2026
+configs/encoder/modernbert_pubhealth.yaml --seeds 13 42 2026
+configs/encoder/roberta_liar.yaml --seeds 13 42 2026
+configs/encoder/bert_liar.yaml --seeds 13 42 2026
+configs/encoder/modernbert_liar.yaml --seeds 13 42 2026
+configs/encoder/roberta_covid.yaml --seeds 13 42 2026
+configs/encoder/bert_covid.yaml --seeds 13 42 2026
+configs/encoder/modernbert_covid.yaml --seeds 13 42 2026
+configs/encoder/distilbert_pubhealth.yaml --seeds 13 42 2026
+configs/encoder/distilbert_liar.yaml --seeds 13 42 2026
+configs/encoder/distilbert_covid.yaml --seeds 13 42 2026

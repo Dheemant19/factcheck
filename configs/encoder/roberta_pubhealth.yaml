@@ -1,0 +1,16 @@
+# T17 base encoder sweep (E1): FacebookAI/roberta-base on pubhealth. Unlisted settings use the plan
+# Section 10 defaults in factcheck/models/encoder.py (AdamW, 6% warmup, up to 4 epochs, bf16).
+run:
+  name: roberta_pubhealth
+  seed: 42
+data:
+  dataset: pubhealth
+  variant: raw
+model:
+  family: encoder
+  name: FacebookAI/roberta-base
+  method: full
+train:
+  learning_rate: 2.0e-5
+  batch_size: 16  # 384 tokens (claim + evidence later, T14/T15): batch 16
+  epochs: 4
