@@ -1,0 +1,42 @@
+{
+  "run": "distilbert_pubhealth",
+  "seed": 42,
+  "dataset": "pubhealth",
+  "variant": "raw",
+  "family": "encoder",
+  "model_name": "distilbert-base-uncased",
+  "best_epoch": 3,
+  "best_val_macro_f1": 0.4659319670990035,
+  "epochs_run": 4,
+  "trainable_params": 66956548,
+  "train_seconds": 60.1162874000147,
+  "peak_gpu_mem_mb": 1280.0185546875,
+  "latency_ms": 4.6114500146359205,
+  "device": "NVIDIA GeForce RTX 5060 Laptop GPU",
+  "history": [
+    {
+      "epoch": 1,
+      "val_macro_f1": 0.40926111368430557,
+      "val_accuracy": 0.6630971993410214,
+      "val_loss": 0.7546218633651733
+    },
+    {
+      "epoch": 2,
+      "val_macro_f1": 0.3873696919243912,
+      "val_accuracy": 0.6589785831960461,
+      "val_loss": 0.7631114721298218
+    },
+    {
+      "epoch": 3,
+      "val_macro_f1": 0.4659319670990035,
+      "val_accuracy": 0.6705107084019769,
+      "val_loss": 0.7915492653846741
+    },
+    {
+      "epoch": 4,
+      "val_macro_f1": 0.46143948202390456,
+      "val_accuracy": 0.6655683690280065,
+      "val_loss": 0.8432062864303589
+    }
+  ]
+}

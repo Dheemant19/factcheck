@@ -1,0 +1,42 @@
+{
+  "run": "distilbert_liar",
+  "seed": 42,
+  "dataset": "liar",
+  "variant": "raw",
+  "family": "encoder",
+  "model_name": "distilbert-base-uncased",
+  "best_epoch": 4,
+  "best_val_macro_f1": 0.2724877311658917,
+  "epochs_run": 4,
+  "trainable_params": 66958086,
+  "train_seconds": 36.19667800003663,
+  "peak_gpu_mem_mb": 1557.08203125,
+  "latency_ms": 4.703349957708269,
+  "device": "NVIDIA GeForce RTX 5060 Laptop GPU",
+  "history": [
+    {
+      "epoch": 1,
+      "val_macro_f1": 0.2280552760532707,
+      "val_accuracy": 0.2531152647975078,
+      "val_loss": 1.6981569528579712
+    },
+    {
+      "epoch": 2,
+      "val_macro_f1": 0.2712304118529258,
+      "val_accuracy": 0.27258566978193144,
+      "val_loss": 1.676438331604004
+    },
+    {
+      "epoch": 3,
+      "val_macro_f1": 0.2658148607086807,
+      "val_accuracy": 0.2757009345794392,
+      "val_loss": 1.707035779953003
+    },
+    {
+      "epoch": 4,
+      "val_macro_f1": 0.2724877311658917,
+      "val_accuracy": 0.2780373831775701,
+      "val_loss": 1.7148590087890625
+    }
+  ]
+}

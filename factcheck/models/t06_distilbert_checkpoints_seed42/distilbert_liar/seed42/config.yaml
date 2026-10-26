@@ -1,0 +1,26 @@
+run:
+  name: distilbert_liar
+  seed: 42
+  config: configs/encoder/distilbert_liar.yaml
+data:
+  max_length: null
+  head_tokens: null
+  subset: null
+  dataset: liar
+  variant: raw
+model:
+  method: full
+  family: encoder
+  name: distilbert-base-uncased
+train:
+  learning_rate: 2.0e-05
+  batch_size: 32
+  eval_batch_size: 64
+  grad_accum: 1
+  epochs: 4
+  warmup_ratio: 0.06
+  weight_decay: 0.01
+  grad_clip: 1.0
+  precision: bf16
+  early_stopping_patience: 2
+  num_workers: 0
