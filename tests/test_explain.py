@@ -18,6 +18,7 @@ from factcheck.explain import (  # noqa: E402
     get_shap_explainer,
     resolve_checkpoint,
     stratified_examples,
+    word_tokenizer,
 )
 
 TINY = "google/bert_uncased_L-2_H-128_A-2"
@@ -114,3 +115,47 @@ def test_stale_checkpoint_is_flagged(explainer, tmp_path, capsys):
         assert "WARNING" in capsys.readouterr().out
     finally:
         explainer.predictions = None
+
+
+def test_word_tokenizer_keeps_every_character():
+    text = "Massachusetts lawmakers weigh 'Medicare for all' bill."
+    out = word_tokenizer(text)
+    assert out["input_ids"][-2:] == ["bill", "."]  # SHAP's default Text() drops the "."
+    assert [text[a:b] for a, b in out["offset_mapping"]] == out["input_ids"]
+
+
+@pytest.fixture(scope="module")
+def lstm_run(tmp_path_factory):
+    """A tiny untrained Bi-LSTM saved like factcheck.models.lstm does (PUBHEALTH, 4 labels)."""
+    import torch
+
+    from factcheck.models.lstm import BiLSTMClassifier
+
+    torch.manual_seed(0)
+    vocab = ["<pad>", "<unk>", "lawmakers", "weigh", "'", "medicare", "for", "all", "bill", "."]
+    embeddings = torch.randn(len(vocab), 8)
+    embeddings[:2] = 0
+    model = BiLSTMClassifier(embeddings, 4, hidden_size=8, num_layers=1, dropout=0.0)
+    path = tmp_path_factory.mktemp("tiny_lstm") / "seed1"
+    (path / "model").mkdir(parents=True)
+    saved = {
+        "state_dict": model.state_dict(),
+        "vocab": vocab,
+        "labels": list(get_dataset("pubhealth").labels),
+    }
+    saved.update(max_length=64, hidden_size=8, num_layers=1, dropout=0.0)
+    torch.save(saved, path / "model" / "model.pt")
+    cfg = {"run": {"name": "tiny_lstm", "seed": 1}, "data": {"dataset": "pubhealth"}}
+    (path / "config.yaml").write_text(yaml.safe_dump(cfg), encoding="utf-8")
+    return path
+
+
+def test_lstm_values_add_up_to_the_real_prediction(lstm_run):
+    """With the default masker the explained text lost its final "." and this was off."""
+    explainer = get_shap_explainer(str(lstm_run), device="cpu")
+    assert explainer.name == "tiny_lstm_seed1" and explainer.tokenizer is None
+    text = "Lawmakers weigh 'Medicare for all' bill."
+    result = explain_claim(text, explainer, max_evals=100)
+    assert [t["token"].strip() for t in result["token_attributions"]][-1] == "."
+    real = explainer.shap.model(np.array([text]))[0]
+    np.testing.assert_allclose(result["probs"], real, atol=1e-5)

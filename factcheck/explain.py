@@ -1,4 +1,4 @@
-"""SHAP token attributions for fine-tuned encoders (owner M4, T16; T33 builds on it).
+"""SHAP token attributions for fine-tuned encoders and the Bi-LSTM (owner M4, T16; T33).
 
 Which words pushed a verdict towards each label, on a fixed 50-example test set per dataset,
 saved as interactive HTML highlights and as arrays for the T33/T34 analysis:
@@ -50,7 +50,7 @@ from transformers import AutoModelForSequenceClassification, AutoTokenizer
 from factcheck.data import get_dataset, load_splits
 from factcheck.data.registry import DatasetInfo
 from factcheck.models.encoder import encode_texts
-from factcheck.models.lstm import LSTMPredictor #[cite: 17, 18]
+from factcheck.models.lstm import LSTMPredictor
 from factcheck.paths import OUTPUT_DIR, PREDICTIONS_DIR
 
 NUM_EXAMPLES = 50
@@ -112,6 +112,24 @@ def _slug(text: str) -> str:
     return re.sub(r"[^A-Za-z0-9]+", "_", text).strip("_").lower()
 
 
+WORD = re.compile(r"\w+|[^\w\s]+")
+
+
+def word_tokenizer(s: str, return_offsets_mapping: bool = True) -> dict:
+    """Words and punctuation with their character spans, for the Bi-LSTM's SHAP masker.
+
+    SHAP's default ``Text()`` masker drops the last punctuation mark when it rebuilds the
+    text, and the Bi-LSTM reacts strongly to a final full stop (P(false) 0.001 vs 0.349 on
+    one PUBHEALTH claim), so its values explained a different sentence. With spans, the
+    unmasked text is rebuilt character for character.
+    """
+    spans = [m.span() for m in WORD.finditer(s)]
+    out = {"input_ids": [s[a:b] for a, b in spans]}
+    if return_offsets_mapping:
+        out["offset_mapping"] = spans
+    return out
+
+
 def resolve_checkpoint(checkpoint: str) -> tuple[str, dict | None]:
     """The model folder (or hub id) and the run's config.yaml, if there is one."""
     path = Path(checkpoint)
@@ -154,21 +172,20 @@ def get_shap_explainer(
     head_tokens = data.get("head_tokens")
     device = device or ("cuda" if torch.cuda.is_available() else "cpu")
 
-    # -------------------------------------------------------------------------
-    # Check if this checkpoint is an LSTM model (.pt file)
-    # -------------------------------------------------------------------------
-    pt_path = Path(model_path) if Path(model_path).suffix == ".pt" else Path(model_path) / "model.pt"
-
+    # Bi-LSTM runs (T05) save a single model.pt; everything else is a Hugging Face folder
+    pt_path = (
+        Path(model_path) if Path(model_path).suffix == ".pt" else Path(model_path) / "model.pt"
+    )
     if pt_path.exists():
-        predictor = LSTMPredictor(pt_path, device=device) #[cite: 18]
+        predictor = LSTMPredictor(pt_path, device=device)
         explainer = shap.Explainer(
-            predictor.predict_proba, #[cite: 17, 18]
-            shap.maskers.Text(), #[cite: 16]
+            predictor.predict_proba,
+            shap.maskers.Text(word_tokenizer),
             output_names=list(info.labels),
         )
         return Explainer(
             shap=explainer,
-            model=predictor.model, #[cite: 18]
+            model=predictor.model,
             tokenizer=None,
             info=info,
             name=name,
@@ -178,17 +195,14 @@ def get_shap_explainer(
             predictions=predictions,
         )
 
-    # -------------------------------------------------------------------------
-    # Transformer models (DistilBERT, RoBERTa, DeBERTa)
-    # -------------------------------------------------------------------------
-    tokenizer = AutoTokenizer.from_pretrained(model_path) #[cite: 16]
-    model = AutoModelForSequenceClassification.from_pretrained(model_path, dtype=torch.float32) #[cite: 16]
-    if model.config.num_labels != info.num_labels: #[cite: 16]
-        raise ValueError( #[cite: 16]
+    tokenizer = AutoTokenizer.from_pretrained(model_path)
+    model = AutoModelForSequenceClassification.from_pretrained(model_path, dtype=torch.float32)
+    if model.config.num_labels != info.num_labels:
+        raise ValueError(
             f"{model_path} has {model.config.num_labels} labels but {info.name} has "
             f"{info.num_labels}"
         )
-    model.to(device).eval() #[cite: 16]
+    model.to(device).eval()
 
     @torch.no_grad()
     def predict(texts) -> np.ndarray:  # noqa: ANN001  (SHAP passes an array of strings)
@@ -203,7 +217,7 @@ def get_shap_explainer(
         return np.concatenate(out)
 
     explainer = shap.Explainer(
-        predict, shap.maskers.Text(tokenizer), output_names=list(info.labels) #[cite: 16]
+        predict, shap.maskers.Text(tokenizer), output_names=list(info.labels)
     )
     return Explainer(
         shap=explainer,
