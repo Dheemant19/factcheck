@@ -50,6 +50,7 @@ from transformers import AutoModelForSequenceClassification, AutoTokenizer
 from factcheck.data import get_dataset, load_splits
 from factcheck.data.registry import DatasetInfo
 from factcheck.models.encoder import encode_texts
+from factcheck.models.lstm import LSTMPredictor #[cite: 17, 18]
 from factcheck.paths import OUTPUT_DIR, PREDICTIONS_DIR
 
 NUM_EXAMPLES = 50
@@ -151,16 +152,43 @@ def get_shap_explainer(
         predictions = None
     max_length = int(data.get("max_length") or info.max_length)
     head_tokens = data.get("head_tokens")
+    device = device or ("cuda" if torch.cuda.is_available() else "cpu")
 
-    tokenizer = AutoTokenizer.from_pretrained(model_path)
-    model = AutoModelForSequenceClassification.from_pretrained(model_path, dtype=torch.float32)
-    if model.config.num_labels != info.num_labels:
-        raise ValueError(
+    # -------------------------------------------------------------------------
+    # Check if this checkpoint is an LSTM model (.pt file)
+    # -------------------------------------------------------------------------
+    pt_path = Path(model_path) if Path(model_path).suffix == ".pt" else Path(model_path) / "model.pt"
+
+    if pt_path.exists():
+        predictor = LSTMPredictor(pt_path, device=device) #[cite: 18]
+        explainer = shap.Explainer(
+            predictor.predict_proba, #[cite: 17, 18]
+            shap.maskers.Text(), #[cite: 16]
+            output_names=list(info.labels),
+        )
+        return Explainer(
+            shap=explainer,
+            model=predictor.model, #[cite: 18]
+            tokenizer=None,
+            info=info,
+            name=name,
+            variant=data.get("variant", "raw"),
+            max_length=max_length,
+            head_tokens=head_tokens,
+            predictions=predictions,
+        )
+
+    # -------------------------------------------------------------------------
+    # Transformer models (DistilBERT, RoBERTa, DeBERTa)
+    # -------------------------------------------------------------------------
+    tokenizer = AutoTokenizer.from_pretrained(model_path) #[cite: 16]
+    model = AutoModelForSequenceClassification.from_pretrained(model_path, dtype=torch.float32) #[cite: 16]
+    if model.config.num_labels != info.num_labels: #[cite: 16]
+        raise ValueError( #[cite: 16]
             f"{model_path} has {model.config.num_labels} labels but {info.name} has "
             f"{info.num_labels}"
         )
-    device = device or ("cuda" if torch.cuda.is_available() else "cpu")
-    model.to(device).eval()
+    model.to(device).eval() #[cite: 16]
 
     @torch.no_grad()
     def predict(texts) -> np.ndarray:  # noqa: ANN001  (SHAP passes an array of strings)
@@ -175,7 +203,7 @@ def get_shap_explainer(
         return np.concatenate(out)
 
     explainer = shap.Explainer(
-        predict, shap.maskers.Text(tokenizer), output_names=list(info.labels)
+        predict, shap.maskers.Text(tokenizer), output_names=list(info.labels) #[cite: 16]
     )
     return Explainer(
         shap=explainer,
