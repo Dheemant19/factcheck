@@ -1,0 +1,19 @@
+# T15 switch: deberta_v3_base_liar plus LIAR's speaker metadata, prefixed to every statement as
+# "[speaker: ... | party: ... | subject: ... | context: ...] statement" (no credit-history
+# counts). For the extra-effort ablation (E5, T29); T29 swaps in T18's tuned settings.
+run:
+  name: deberta_v3_base_liar_meta
+  seed: 42
+data:
+  dataset: liar
+  variant: raw
+features:
+  use_metadata: true
+model:
+  family: encoder
+  name: microsoft/deberta-v3-base
+  method: full
+train:
+  learning_rate: 2.0e-5
+  batch_size: 32
+  epochs: 4

@@ -38,8 +38,9 @@ from torch import nn
 from torch.nn.utils.rnn import pack_padded_sequence, pad_sequence
 from torch.utils.data import DataLoader
 
-from factcheck.data import get_dataset, load_splits
+from factcheck.data import get_dataset
 from factcheck.evaluate import log_run, measure_latency_ms
+from factcheck.inputs import load_inputs, single_text
 from factcheck.paths import CACHE_DIR, OUTPUT_DIR, RAW_DIR
 
 PAD, UNK = "<pad>", "<unk>"  # ids 0 and 1; both have zero vectors
@@ -226,7 +227,9 @@ def train_lstm(cfg: dict) -> dict:
     set_seed(seed)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     info = get_dataset(data["dataset"])
-    splits = load_splits(info.name, variant=data.get("variant", "raw"))
+    splits = {  # load_splits + the features switches (T15), as one sequence per row
+        split: df.assign(text=single_text(df)) for split, df in load_inputs(cfg).items()
+    }
     max_length = int(data.get("max_length") or info.max_length)
 
     vocab, embeddings = vocab_and_embeddings(

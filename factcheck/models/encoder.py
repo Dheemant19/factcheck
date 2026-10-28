@@ -48,9 +48,10 @@ from transformers import (
 )
 from transformers import set_seed as hf_set_seed
 
-from factcheck.data import get_dataset, load_splits
+from factcheck.data import get_dataset
 from factcheck.data.registry import DatasetInfo
 from factcheck.evaluate import compute_metrics, log_run, measure_latency_ms
+from factcheck.inputs import load_inputs
 from factcheck.paths import CACHE_DIR, OUTPUT_DIR
 
 # Plan Section 10, base-encoder column. A run config only needs to list what it changes.
@@ -92,13 +93,26 @@ def with_defaults(cfg: dict) -> dict:
 
 
 def encode_texts(
-    texts: Sequence[str], tokenizer, max_length: int, head_tokens: int | None = None
+    texts: Sequence[str],
+    tokenizer,
+    max_length: int,
+    head_tokens: int | None = None,
+    pairs: Sequence[str] | None = None,
 ) -> list[list[int]]:
     """Token ids with special tokens, cut to ``max_length``.
 
     Without ``head_tokens`` the text is cut at the end. With it, a long text keeps its first
     ``head_tokens`` tokens and its last ``max_length - head_tokens - specials`` tokens.
+    With ``pairs`` (evidence, T15) each text is encoded with its pair, separated the model's own
+    way, and only the pair is cut, from its end (the least similar evidence goes first).
     """
+    if pairs is not None:
+        if head_tokens is not None:
+            raise ValueError("head_tokens is for long single texts (ISOT), not text pairs")
+        encoded = tokenizer(
+            list(texts), list(pairs), truncation="only_second", max_length=max_length
+        )
+        return encoded["input_ids"]
     if head_tokens is None:
         return tokenizer(list(texts), truncation=True, max_length=max_length)["input_ids"]
     # The special tokens around a single text, e.g. [CLS] ... [SEP] or <s> ... </s>
@@ -118,18 +132,23 @@ def tokenized_split(
 ) -> Dataset:
     """One split as a ``datasets.Dataset`` of input_ids and labels, cached in ``CACHE_DIR``.
 
-    The cache key covers the rows (ids and texts), the tokenizer and the truncation settings,
-    so a change to any of them re-tokenises.
+    The cache key covers the rows (ids, texts and evidence pairs), the tokenizer and the
+    truncation settings, so a change to any of them re-tokenises.
     """
+    pairs = df["text_pair"].tolist() if "text_pair" in df else None
     key = hashlib.sha1(
-        "\n".join([model_name, str(max_length), str(head_tokens), *df["id"], *df["text"]]).encode()
+        "\n".join(
+            [model_name, str(max_length), str(head_tokens), *df["id"], *df["text"], *(pairs or [])]
+        ).encode()
     ).hexdigest()[:16]
     path = CACHE_DIR / "tokenized" / key
     if path.exists():
         return Dataset.load_from_disk(str(path))
     ds = Dataset.from_dict(
         {
-            "input_ids": encode_texts(df["text"].tolist(), tokenizer, max_length, head_tokens),
+            "input_ids": encode_texts(
+                df["text"].tolist(), tokenizer, max_length, head_tokens, pairs
+            ),
             "labels": df["label"].tolist(),
         }
     )
@@ -203,7 +222,7 @@ def train_encoder(cfg: dict) -> dict:
     seed = int(run["seed"])
     hf_set_seed(seed)
     info: DatasetInfo = get_dataset(data["dataset"])
-    splits = load_splits(info.name, variant=data.get("variant", "raw"))
+    splits = load_inputs(cfg)  # load_splits + the features switches (metadata, evidence; T15)
     if data["subset"]:
         splits["train"] = stratified_subset(splits["train"], int(data["subset"]), seed)
     max_length = int(data["max_length"] or info.max_length)
@@ -310,12 +329,22 @@ def train_encoder(cfg: dict) -> dict:
     model = trainer.model.float().eval()  # timed in fp32, the way the app runs it (spec S6)
 
     @torch.no_grad()
-    def predict_texts(texts: list[str]) -> np.ndarray:
-        ids = encode_texts(texts, tokenizer, max_length, data["head_tokens"])
+    def predict_texts(items: list) -> np.ndarray:
+        """Items are texts, or (text, evidence) tuples when the run uses evidence."""
+        if isinstance(items[0], str):
+            texts, pairs = items, None
+        else:
+            texts, pairs = [t for t, _ in items], [e for _, e in items]
+        ids = encode_texts(texts, tokenizer, max_length, data["head_tokens"], pairs)
         inputs = {"input_ids": torch.tensor(ids, device=model.device)}
         return torch.softmax(model(**inputs).logits, dim=-1).cpu().numpy()
 
-    latency = measure_latency_ms(predict_texts, splits["test"]["text"].tolist()[:200])
+    test = splits["test"].head(200)
+    if "text_pair" in test:
+        items = list(zip(test["text"], test["text_pair"], strict=True))
+    else:
+        items = test["text"].tolist()
+    latency = measure_latency_ms(predict_texts, items)
     summary = {
         "run": run["name"],
         "seed": seed,

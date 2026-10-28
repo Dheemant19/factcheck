@@ -379,6 +379,37 @@ def load_evidence(name: str) -> EvidenceStore:
     return build_evidence(name)
 
 
+# --- retrieval for prompts and model inputs (T14) -------------------------------------------
+
+
+def knn_examples(name: str, df: pd.DataFrame, split: str, k: int = DEFAULT_K) -> list[list[Hit]]:
+    """The k most similar TRAINING claims for every row of ``df`` (most similar first).
+
+    ``df`` is one split as ``load_splits`` returns it (before any metadata prefix), and
+    ``split`` its name, which keys the query cache. A training row never gets itself back,
+    and validation/test claims are never in the index, so no example can leak a held-out
+    verdict. Turn the hits into a prompt with ``factcheck.prompts.knn_messages``.
+    """
+    index = load_claim_index(name)
+    queries = embed_split(index, df, split)
+    return index.hits(*index.search(queries, k, exclude_ids=df["id"].tolist()))
+
+
+def evidence_for(name: str, df: pd.DataFrame, k: int = 5, source: str = "own") -> list[list[str]]:
+    """The k best evidence sentences for every claim of ``df`` (most similar first).
+
+    ``source="own"``: from the claim's own evidence (PUBHEALTH: its fact-check article;
+    Climate-FEVER: its 5 given sentences). ``source="pool"``: open retrieval from every
+    evidence sentence of the dataset (Climate-FEVER's honest RAG setting).
+    """
+    store = load_evidence(name)
+    if source == "own":
+        return [store.top_k(cid, k) for cid in df["id"]]
+    if source == "pool":
+        return [[s for s, _ in hits] for hits in store.search_pool(df["text"].tolist(), k)]
+    raise ValueError(f"evidence source must be 'own' or 'pool', not {source!r}")
+
+
 # --- kNN-vote baseline (a model family for factcheck.train) ---------------------------------
 
 

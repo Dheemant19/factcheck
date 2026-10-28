@@ -22,6 +22,8 @@ are stubs whose docstring names the owner and task. What works today:
 * `factcheck.retrieval`: embedding search over already fact-checked training claims and over
   evidence sentences, and the kNN-vote baseline (`configs/knn/`) (T08).
 * `notebooks/01_eda.ipynb`: sizes, label balance, token lengths, duplicates, shortcuts (T09).
+* `factcheck.prompts` and `factcheck.inputs`: kNN and RAG prompts, claim + evidence pairs (T14),
+  and the `features` config switches for LIAR metadata and evidence (T15).
 
 ## Who owns what
 
@@ -190,6 +192,36 @@ Embeddings come from `BAAI/bge-small-en-v1.5` (unit length, so search is one mat
 and are cached as float16 in `data/cache/retrieval/`; the cache key includes the exact texts,
 so a change in the data rebuilds it. Only train claims are indexed, so a prompt can never show
 a validation or test verdict.
+
+## Model inputs and prompts (T14, T15)
+
+Two extra-effort switches go in a run config and need no code changes (both off by default):
+
+```yaml
+features:
+  use_metadata: true    # LIAR: "[speaker: ... | party: ... | subject: ... | context: ...] claim"
+  use_evidence: true    # PUBHEALTH / Climate-FEVER: claim + its 5 most similar evidence sentences
+  evidence_k: 5
+```
+
+Every model family loads data with `factcheck.inputs.load_inputs(cfg)` (`load_splits` plus these
+switches), so the Bi-LSTM, the encoders and the LLM see identical inputs. Encoders tokenise
+claim and evidence as a pair and cut only the evidence. The LLM prompts are built in
+`factcheck/prompts.py`:
+
+```python
+from factcheck.prompts import knn_messages, rag_messages
+from factcheck.retrieval import evidence_for, knn_examples
+
+hits = knn_examples("liar", splits["validation"], "validation", k=8)   # train claims only
+messages = knn_messages(claim, [(h.text, h.label_name) for h in hits[0]], "liar")
+messages = rag_messages(claim, evidence_for("pubhealth", df)[0], "pubhealth")
+```
+
+They return chat messages for `tokenizer.apply_chat_template`, end with the same answer
+instruction as the zero-shot prompt (T07), and keep 8 ISOT examples under 2,000 tokens. Wiring
+them into `factcheck.models.llm` is the LLM retrieval runs (T20). More in
+`docs/m3_prompts_and_inputs.md`.
 
 ## Training and results
 

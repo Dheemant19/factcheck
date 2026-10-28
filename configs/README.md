@@ -17,3 +17,15 @@ and ModernBERT, and every base encoder on ISOT with source shortcuts removed
 
 `llm/` holds the prompted Qwen3-8B runs (T07 zero-shot). They train nothing and need a
 cluster GPU (about 17 GB in bf16).
+
+`features` switches the two input extras of the ablation (E5) on and off without code changes
+(T15; both are off when left out). `use_metadata` (LIAR only) prefixes each statement with
+`[speaker: ... | party: ... | subject: ... | context: ...]`. `use_evidence` (PUBHEALTH and
+Climate-FEVER only) pairs each claim with its `evidence_k` most similar evidence sentences from
+the T08 retrieval cache. Every model family reads its inputs through
+`factcheck.inputs.load_inputs`, so a switch means the same for the Bi-LSTM, the encoders and
+the LLM (for the LLM, evidence is the RAG mode of T20). Examples:
+`encoder/deberta_v3_base_liar_meta.yaml` and `encoder/deberta_v3_base_pubhealth_evidence.yaml`.
+
+`knn/` holds the kNN-vote baselines (T08): no training, just the similarity-weighted verdict
+of the 8 most similar training claims.
