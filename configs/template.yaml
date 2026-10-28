@@ -5,8 +5,12 @@ run:
 data:
   dataset: covid              # covid, liar, pubhealth, isot, climate_fever
   variant: raw                # raw, or clean (shortcut-removed copy, T13)
+features:                     # extra-effort switches (T15); both off when left out
+  use_metadata: false         # liar only: [speaker | party | subject | context] prefix
+  use_evidence: false         # pubhealth / climate_fever only: claim + evidence pair
+  evidence_k: 5               # evidence sentences per claim
 model:
-  family: encoder             # lstm, encoder or llm
+  family: encoder             # lstm, encoder, llm or knn
   name: distilbert-base-uncased
   method: full                # full, lora, qlora, zeroshot, knn, rag
 train:

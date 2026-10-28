@@ -29,52 +29,12 @@ import yaml
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from transformers import set_seed as hf_set_seed
 
-from factcheck.data import get_dataset, load_splits
+from factcheck.data import get_dataset
 from factcheck.data.registry import DatasetInfo
 from factcheck.evaluate import log_run, measure_latency_ms
+from factcheck.inputs import features, load_inputs
 from factcheck.paths import OUTPUT_DIR
-
-# Per dataset: what the text is, and a one-line definition of each label (registry order).
-# LIAR uses PolitiFact's own Truth-O-Meter definitions.
-PROMPTS = {
-    "covid": {
-        "task": "Decide whether this social media post about COVID-19 is real or fake news.",
-        "labels": {
-            "real": "the post states verified, factually accurate information.",
-            "fake": "the post states false or misleading information.",
-        },
-    },
-    "liar": {
-        "task": "Rate this statement by a US politician on PolitiFact's six-point truth scale.",
-        "labels": {
-            "pants-fire": "the statement is not accurate and makes a ridiculous claim.",
-            "false": "the statement is not accurate.",
-            "barely-true": "the statement contains an element of truth but ignores critical facts "
-            "that would give a different impression.",
-            "half-true": "the statement is partially accurate but leaves out important details "
-            "or takes things out of context.",
-            "mostly-true": "the statement is accurate but needs clarification or additional "
-            "information.",
-            "true": "the statement is accurate and there is nothing significant missing.",
-        },
-    },
-    "pubhealth": {
-        "task": "Judge this public-health claim the way a professional fact-checker would.",
-        "labels": {
-            "false": "the claim is false.",
-            "mixture": "the claim is partly true and partly false.",
-            "true": "the claim is true.",
-            "unproven": "there is not enough evidence to say whether the claim is true or false.",
-        },
-    },
-    "isot": {
-        "task": "Decide whether this news article is real news or fake news.",
-        "labels": {
-            "real": "the article is genuine reporting from a reliable outlet.",
-            "fake": "the article is fabricated or comes from an unreliable source.",
-        },
-    },
-}
+from factcheck.prompts import PROMPTS, zero_shot_message  # noqa: F401  (T14 moved them)
 
 DEFAULTS = {
     "data": {"max_length": None},  # claim tokens kept; None = the dataset's registry max_length
@@ -88,21 +48,6 @@ def with_defaults(cfg: dict) -> dict:
     for section, defaults in DEFAULTS.items():
         cfg[section] = {**defaults, **(cfg.get(section) or {})}
     return cfg
-
-
-def zero_shot_message(text: str, dataset: str) -> str:
-    """The user message: task, label definitions, the text, and the answer format.
-
-    The last sentence matters: without it Qwen3 puts about half its probability on "**" (it
-    wants to bold the answer) on PUBHEALTH, and label coverage drops to 0.53.
-    """
-    spec = PROMPTS[dataset]
-    definitions = "\n".join(f"- {label}: {meaning}" for label, meaning in spec["labels"].items())
-    return (
-        f"{spec['task']}\n\nLabels:\n{definitions}\n\nText: {text}\n\n"
-        f"Answer with exactly one label from: {', '.join(spec['labels'])}. Reply with the label "
-        "only, in lowercase, with no other text or formatting."
-    )
 
 
 class LLMScorer:
@@ -190,7 +135,12 @@ def score_llm(cfg: dict) -> dict:
     seed = int(run["seed"])
     hf_set_seed(seed)  # scoring is deterministic; the seed only names the run
     info = get_dataset(data["dataset"])
-    splits = load_splits(info.name, variant=data.get("variant", "raw"))
+    if features(cfg)["use_evidence"]:
+        raise NotImplementedError(
+            "use_evidence for the LLM is the RAG mode (T20): build the prompt with "
+            "factcheck.prompts.rag_messages and factcheck.retrieval.evidence_for"
+        )
+    splits = load_inputs(cfg)  # load_splits + the features switches (T15)
     cuda = torch.cuda.is_available()
 
     scorer = LLMScorer(mcfg["name"], info, data["max_length"])

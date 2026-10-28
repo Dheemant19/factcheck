@@ -1,0 +1,21 @@
+# T15 switch: deberta_v3_base_pubhealth plus evidence. Each claim is paired with the 5 sentences
+# of its fact-check article most similar to it (T08 retrieval), and only the evidence is cut to
+# fit 384 tokens. Needs the evidence cache: python -m factcheck.retrieval build --datasets
+# pubhealth. For the extra-effort ablation (E5, T29); T29 swaps in T18's tuned settings.
+run:
+  name: deberta_v3_base_pubhealth_evidence
+  seed: 42
+data:
+  dataset: pubhealth
+  variant: raw
+features:
+  use_evidence: true
+  evidence_k: 5
+model:
+  family: encoder
+  name: microsoft/deberta-v3-base
+  method: full
+train:
+  learning_rate: 2.0e-5
+  batch_size: 16  # 384 tokens
+  epochs: 4
