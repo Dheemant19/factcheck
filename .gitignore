@@ -29,3 +29,7 @@ venv/
 
 # Design-tool workspace (screenshots, decision logs); PRODUCT.md stays tracked
 .impeccable/
+
+*.html
+*.npz
+factcheck/models/
