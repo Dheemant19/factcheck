@@ -1,0 +1,22 @@
+# T18 tuned settings for deberta_v3_base_pubhealth: trial 26, the best of 30 Optuna
+# trials (validation macro-F1 0.5292). Written by
+# python -m factcheck.tune --config configs/encoder/deberta_v3_base_pubhealth.yaml --export
+run:
+  name: deberta_v3_base_pubhealth_tuned
+  seed: 42
+data:
+  dataset: pubhealth
+  variant: raw
+model:
+  family: encoder
+  name: microsoft/deberta-v3-base
+  method: full
+  dropout: 0.01415295581173074
+  freeze_layers: 0
+train:
+  learning_rate: 7.884843323281146e-06
+  batch_size: 16
+  epochs: 5
+  warmup_ratio: 0.14168828056181615
+  weight_decay: 0.07378326182958159
+  grad_accum: 1

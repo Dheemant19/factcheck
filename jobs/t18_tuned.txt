@@ -1,0 +1,5 @@
+# T18 tuned DeBERTa-v3-base (E2): the best Optuna trial per dataset, 3 seeds, scored on test.
+# Run with jobs/queue.sh; compare with the default-settings deberta_v3_base_<dataset> rows.
+configs/encoder/deberta_v3_base_pubhealth_tuned.yaml --seeds 13 42 2026
+configs/encoder/deberta_v3_base_liar_tuned.yaml --seeds 13 42 2026
+configs/encoder/deberta_v3_base_covid_tuned.yaml --seeds 13 42 2026
