@@ -1,0 +1,22 @@
+# T18 tuned settings for deberta_v3_base_liar: trial 24, the best of 30 Optuna
+# trials (validation macro-F1 0.3009). Written by
+# python -m factcheck.tune --config configs/encoder/deberta_v3_base_liar.yaml --export
+run:
+  name: deberta_v3_base_liar_tuned
+  seed: 42
+data:
+  dataset: liar
+  variant: raw
+model:
+  family: encoder
+  name: microsoft/deberta-v3-base
+  method: full
+  dropout: 0.003442412793401836
+  freeze_layers: 4
+train:
+  learning_rate: 2.7296085510843067e-05
+  batch_size: 32
+  epochs: 3
+  warmup_ratio: 0.11739540424518144
+  weight_decay: 0.08295603100588275
+  grad_accum: 1

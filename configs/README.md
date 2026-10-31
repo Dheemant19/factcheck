@@ -27,5 +27,10 @@ the T08 retrieval cache. Every model family reads its inputs through
 the LLM (for the LLM, evidence is the RAG mode of T20). Examples:
 `encoder/deberta_v3_base_liar_meta.yaml` and `encoder/deberta_v3_base_pubhealth_evidence.yaml`.
 
+`encoder/*_tuned.yaml` are written by the Optuna search (T18), not by hand: the best trial of
+`python -m factcheck.tune` as a run config (`jobs/t18_tune.sh` runs the search on the cluster;
+the studies are in `results/optuna/`). They add two settings the search varies,
+`model.dropout` and `model.freeze_layers`.
+
 `knn/` holds the kNN-vote baselines (T08): no training, just the similarity-weighted verdict
 of the 8 most similar training claims.

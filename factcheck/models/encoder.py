@@ -20,6 +20,10 @@ and logs the validation and test scores to ``results/runs.csv`` through
 
 Long texts (ISOT) can keep the head and the tail of the article instead of only the head:
 ``data.head_tokens: 128`` with ``max_length: 512`` keeps the first 128 and the last 382 tokens.
+
+Two settings the Optuna search (T18) varies: ``model.dropout`` sets every dropout rate of the
+encoder and its head, and ``model.freeze_layers: k`` freezes the embeddings and the bottom k
+layers.
 """
 
 from __future__ import annotations
@@ -27,10 +31,13 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import os
 import shutil
 import sys
+import tempfile
 import time
 from collections.abc import Sequence
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -39,6 +46,7 @@ import yaml
 from datasets import Dataset
 from torch.utils.data import DataLoader
 from transformers import (
+    AutoConfig,
     AutoModelForSequenceClassification,
     AutoTokenizer,
     DataCollatorWithPadding,
@@ -61,7 +69,11 @@ DEFAULTS = {
         "head_tokens": None,  # keep this many head tokens and fill the rest from the tail
         "subset": None,  # train on a stratified sample of this many rows (debug runs only)
     },
-    "model": {"method": "full"},
+    "model": {
+        "method": "full",
+        "dropout": None,  # None = the pretrained model's own rates (0.1 for most encoders)
+        "freeze_layers": 0,  # freeze the embeddings and this many bottom layers
+    },
     "train": {
         "learning_rate": 2.0e-5,
         "batch_size": None,  # None = 32, or 16 at 384 tokens and above
@@ -152,7 +164,14 @@ def tokenized_split(
             "labels": df["label"].tolist(),
         }
     )
-    ds.save_to_disk(str(path))
+    # Written to a temporary folder and renamed, so parallel workers (several seeds, or the T18
+    # Optuna workers) never read a half-written cache.
+    tmp = path.with_name(f"{key}.tmp{os.getpid()}")
+    ds.save_to_disk(str(tmp))
+    try:
+        tmp.rename(path)
+    except OSError:  # another worker saved the same split first
+        shutil.rmtree(tmp, ignore_errors=True)
     return ds
 
 
@@ -173,20 +192,61 @@ def softmax(logits: np.ndarray) -> np.ndarray:
     return e / e.sum(axis=1, keepdims=True)
 
 
-def load_model(name: str, info: DatasetInfo):  # noqa: ANN201
+# Dropout rates in the configs of the encoders we use: BERT, RoBERTa and DeBERTa-v3 (hidden,
+# attention, head), DistilBERT, and ModernBERT.
+DROPOUT_KEYS = (
+    "hidden_dropout_prob",
+    "attention_probs_dropout_prob",
+    "pooler_dropout",
+    "classifier_dropout",
+    "dropout",
+    "attention_dropout",
+    "seq_classif_dropout",
+    "embedding_dropout",
+    "mlp_dropout",
+)
+
+
+def load_model(name: str, info: DatasetInfo, dropout: float | None = None):  # noqa: ANN201
     """The pretrained encoder with a fresh classification head, always with fp32 weights.
 
     transformers 5 loads weights in the dtype they were saved in, and DeBERTa-v3 is saved in
     fp16: AdamW on fp16 weights turns them into inf/NaN on the first step (eps 1e-8 is 0 in
     fp16). bf16 is applied by autocast during training, so the weights stay fp32 here.
+    ``dropout`` replaces every dropout rate the model's config has.
     """
-    return AutoModelForSequenceClassification.from_pretrained(
-        name,
-        num_labels=info.num_labels,
-        id2label=info.id2label,
-        label2id=info.label2id,
-        dtype=torch.float32,
+    config = AutoConfig.from_pretrained(
+        name, num_labels=info.num_labels, id2label=info.id2label, label2id=info.label2id
     )
+    if dropout is not None:
+        for key in DROPOUT_KEYS:
+            if hasattr(config, key):
+                setattr(config, key, float(dropout))
+    return AutoModelForSequenceClassification.from_pretrained(
+        name, config=config, dtype=torch.float32
+    )
+
+
+def freeze_bottom_layers(model: torch.nn.Module, k: int) -> None:
+    """Freeze the embeddings and the bottom ``k`` transformer layers (``k = 0`` freezes nothing)."""
+    if not k:
+        return
+    base = model.base_model
+    # BERT, RoBERTa and DeBERTa keep them in encoder.layer, DistilBERT in transformer.layer,
+    # ModernBERT in layers.
+    for path in ("encoder.layer", "transformer.layer", "layers"):
+        layers = base
+        for attr in path.split("."):
+            layers = getattr(layers, attr, None)
+        if isinstance(layers, torch.nn.ModuleList):
+            break
+    else:
+        raise ValueError(f"freeze_layers: no transformer layers found in {type(base).__name__}")
+    if k > len(layers):
+        raise ValueError(f"freeze_layers is {k} but the model has only {len(layers)} layers")
+    for module in (base.embeddings, *layers[:k]):
+        for p in module.parameters():
+            p.requires_grad = False
 
 
 def count_trainable(model: torch.nn.Module) -> int:
@@ -213,8 +273,13 @@ def predict_proba(model, dataset: Dataset, collator, batch_size: int, bf16: bool
     return torch.cat(out).numpy()
 
 
-def train_encoder(cfg: dict) -> dict:
-    """Fine-tune one encoder run from a config dict (see ``configs/encoder/``)."""
+def train_encoder(cfg: dict, callbacks: Sequence = (), save: bool = True) -> dict:
+    """Fine-tune one encoder run from a config dict (see ``configs/encoder/``).
+
+    ``callbacks`` are extra ``transformers`` trainer callbacks. With ``save=False`` (Optuna
+    trials, T18) the run only trains and returns its validation scores: no checkpoint, no test
+    predictions and nothing in results/runs.csv.
+    """
     cfg = with_defaults(cfg)
     run, data, mcfg, tcfg = cfg["run"], cfg["data"], cfg["model"], cfg["train"]
     if mcfg["method"] != "full":
@@ -236,7 +301,8 @@ def train_encoder(cfg: dict) -> dict:
         split: tokenized_split(df, tokenizer, name, max_length, data["head_tokens"])
         for split, df in splits.items()
     }
-    model = load_model(name, info)
+    model = load_model(name, info, mcfg["dropout"])
+    freeze_bottom_layers(model, int(mcfg["freeze_layers"]))
     trainable = count_trainable(model)
     print(
         f"{run['name']} seed {seed}: {name} on {info.name} ({info.num_labels} labels), "
@@ -245,8 +311,10 @@ def train_encoder(cfg: dict) -> dict:
     )
 
     run_dir = OUTPUT_DIR / run["name"] / f"seed{seed}"
+    # Trials write nothing under outputs/, so they can never touch a real run of the same name
+    checkpoints = run_dir / "checkpoints" if save else Path(tempfile.mkdtemp(prefix="trial_"))
     args = TrainingArguments(
-        output_dir=str(run_dir / "checkpoints"),
+        output_dir=str(checkpoints),
         seed=seed,
         learning_rate=tcfg["learning_rate"],
         per_device_train_batch_size=batch_size,
@@ -259,9 +327,9 @@ def train_encoder(cfg: dict) -> dict:
         max_grad_norm=tcfg["grad_clip"],
         bf16=bf16,
         eval_strategy="epoch",
-        save_strategy="epoch",
+        save_strategy="epoch" if save else "no",
         logging_strategy="epoch",
-        load_best_model_at_end=True,
+        load_best_model_at_end=save,
         metric_for_best_model="macro_f1",
         greater_is_better=True,
         save_total_limit=1,  # with load_best_model_at_end the best checkpoint is also kept
@@ -285,7 +353,7 @@ def train_encoder(cfg: dict) -> dict:
         processing_class=tokenizer,
         data_collator=collator,
         compute_metrics=val_metrics,
-        callbacks=[EarlyStoppingCallback(int(tcfg["early_stopping_patience"]))],
+        callbacks=[EarlyStoppingCallback(int(tcfg["early_stopping_patience"])), *callbacks],
     )
     if cuda:
         torch.cuda.reset_peak_memory_stats()
@@ -305,6 +373,23 @@ def train_encoder(cfg: dict) -> dict:
         if "eval_macro_f1" in h
     ]
     best = max(history, key=lambda h: h["val_macro_f1"])
+    summary = {
+        "run": run["name"],
+        "seed": seed,
+        "dataset": info.name,
+        "variant": data.get("variant", "raw"),
+        "family": "encoder",
+        "model_name": name,
+        "best_epoch": best["epoch"],
+        "best_val_macro_f1": best["val_macro_f1"],
+        "epochs_run": len(history),
+        "trainable_params": trainable,
+        "train_seconds": train_seconds,
+        "peak_gpu_mem_mb": peak_mb,
+    }
+    if not save:
+        shutil.rmtree(checkpoints, ignore_errors=True)
+        return {**summary, "history": history}
 
     probs = {
         split: predict_proba(
@@ -345,23 +430,11 @@ def train_encoder(cfg: dict) -> dict:
     else:
         items = test["text"].tolist()
     latency = measure_latency_ms(predict_texts, items)
-    summary = {
-        "run": run["name"],
-        "seed": seed,
-        "dataset": info.name,
-        "variant": data.get("variant", "raw"),
-        "family": "encoder",
-        "model_name": name,
-        "best_epoch": best["epoch"],
-        "best_val_macro_f1": best["val_macro_f1"],
-        "epochs_run": len(history),
-        "trainable_params": trainable,
-        "train_seconds": train_seconds,
-        "peak_gpu_mem_mb": peak_mb,
-        "latency_ms": latency,
-        "device": torch.cuda.get_device_name() if cuda else "cpu",
-        "history": history,
-    }
+    summary.update(
+        latency_ms=latency,
+        device=torch.cuda.get_device_name() if cuda else "cpu",
+        history=history,
+    )
     with open(run_dir / "train_summary.json", "w", encoding="utf-8") as f:
         json.dump(summary, f, indent=2)
     for h in history:

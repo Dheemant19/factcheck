@@ -5,7 +5,7 @@
 /outputs/
 /logs/
 results/predictions/
-results/optuna.db
+results/optuna/*.lock
 results/*.lock
 *.ckpt
 *.safetensors
@@ -29,7 +29,3 @@ venv/
 
 # Design-tool workspace (screenshots, decision logs); PRODUCT.md stays tracked
 .impeccable/
-
-*.html
-*.npz
-factcheck/models/
