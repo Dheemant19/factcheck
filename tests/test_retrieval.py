@@ -119,3 +119,4 @@ def test_climate_fever_evidence_belongs_to_its_claim():
     top = store.top_k(row["id"], k=5)
     assert len(top) == len(own) and set(top) <= own
     assert len(store.search_pool([row["text"]], k=3)[0]) == 3
+    assert store.search_pool([], k=3) == []  # empty splits (no train/validation) are fine

@@ -321,6 +321,8 @@ class EvidenceStore:
     def search_pool(self, claims: Sequence[str], k: int = 5) -> list[list[tuple[str, float]]]:
         """Open retrieval: the k most similar sentences from the WHOLE pool for new claim texts
         (the honest RAG setting for Climate-FEVER, where a claim's own evidence is not given)."""
+        if not len(claims):  # e.g. Climate-FEVER's empty train/validation splits in load_inputs
+            return []
         queries = [EVIDENCE_PREFIX + c for c in claims]
         q = self.encoder(queries) if self.encoder else embed(queries)
         top, sims = top_k_rows(q @ self.emb.astype(np.float32).T, k)
