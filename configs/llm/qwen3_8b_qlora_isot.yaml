@@ -1,0 +1,25 @@
+# T27 QLoRA: Qwen3-8B with a classification head on a stratified 15k-article sample of clean
+# isot (source shortcuts removed, T13, as in the encoder sweep), 512 tokens as head 128 + tail
+# 382. One epoch: about 7.7M training tokens. model/ holds the adapters and head (load_qlora).
+run:
+  name: qwen3_8b_qlora_isot
+  seed: 42
+data:
+  dataset: isot
+  variant: clean
+  head_tokens: 128
+  train_rows: 15000
+model:
+  family: llm
+  name: Qwen/Qwen3-8B
+  method: qlora
+  lora_r: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+  lora_targets: all_linear
+train:
+  learning_rate: 2.0e-4
+  batch_size: 4
+  grad_accum: 4  # effective batch 16
+  eval_batch_size: 8
+  epochs: 1

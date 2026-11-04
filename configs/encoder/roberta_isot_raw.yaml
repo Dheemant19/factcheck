@@ -1,0 +1,18 @@
+# T28 shortcut study (E7): roberta-base, the best base encoder on clean ISOT in T17, trained on
+# RAW isot (source fingerprints left in) to compare with roberta_isot_clean. Same settings as
+# that run; the raw-trained model is kept for the app's shortcut demo (M5).
+run:
+  name: roberta_isot_raw
+  seed: 42
+data:
+  dataset: isot
+  variant: raw
+  head_tokens: 128  # 512 tokens = head 128 + tail 382 (plan Section 10)
+model:
+  family: encoder
+  name: FacebookAI/roberta-base
+  method: full
+train:
+  learning_rate: 2.0e-5
+  batch_size: 16  # 512 tokens: batch 16
+  epochs: 4

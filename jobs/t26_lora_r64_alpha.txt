@@ -1,0 +1,6 @@
+# T26 re-runs: roberta-large rank 64 collapsed to one class with lora_alpha 128 (2 x rank) on
+# PUBHEALTH and LIAR; the same runs with lora_alpha 32.
+configs/encoder/lora/roberta_large_lora_r64_attn_pubhealth.yaml --seeds 42
+configs/encoder/lora/roberta_large_lora_r64_all_pubhealth.yaml --seeds 42
+configs/encoder/lora/roberta_large_lora_r64_attn_liar.yaml --seeds 42
+configs/encoder/lora/roberta_large_lora_r64_all_liar.yaml --seeds 42

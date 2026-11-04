@@ -1,0 +1,9 @@
+# T29 ablations: one switch on top of T18's tuned DeBERTa-v3-base settings, 3 seeds each.
+# The 'off' runs are the *_tuned rows already in runs.csv. Domain models (COVID-Twitter-BERT,
+# SciBERT) vs general encoders are the T17/T19 rows; no new runs needed for that switch.
+# Longest first.
+configs/encoder/deberta_v3_base_pubhealth_tuned_evidence.yaml --seeds 13 42 2026
+configs/encoder/deberta_v3_base_pubhealth_tuned_cw.yaml --seeds 13 42 2026
+configs/encoder/deberta_v3_base_liar_tuned_meta.yaml --seeds 13 42 2026
+configs/encoder/deberta_v3_base_covid_tuned_cw.yaml --seeds 13 42 2026
+configs/encoder/deberta_v3_base_liar_tuned_cw.yaml --seeds 13 42 2026

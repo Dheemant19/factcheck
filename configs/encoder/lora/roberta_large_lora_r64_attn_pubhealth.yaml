@@ -1,0 +1,23 @@
+# T26 LoRA: FacebookAI/roberta-large on pubhealth, rank 64 adapters on query/key/value projections of the encoder;
+# the head trains in full. Batch settings as the T19 full fine-tune (roberta_large_pubhealth),
+# lr 1e-4, 10% warmup: at 3e-4 roberta-large collapsed to one class (val 0.17); 1e-4 gave
+# val 0.50 and 3e-5 0.43 (rank 16, attention, PUBHEALTH).
+run:
+  name: roberta_large_lora_r64_attn_pubhealth
+  seed: 42
+data:
+  dataset: pubhealth
+  variant: raw
+model:
+  family: encoder
+  name: FacebookAI/roberta-large
+  method: lora
+  lora_r: 64
+  lora_targets: attention
+  lora_alpha: 32  # not the default 2 x 64 = 128: with 128 every seed-42 run collapsed to one class
+train:
+  learning_rate: 1.0e-4
+  batch_size: 8
+  grad_accum: 2  # effective batch 16 at 384 tokens
+  epochs: 4
+  warmup_ratio: 0.1

@@ -1,0 +1,6 @@
+# T28 raw vs clean (E7): the best base encoder of T17 on the variant T17 did not run, 3 seeds.
+# The other half is already in runs.csv (roberta_isot_clean, modernbert_covid). Longest first.
+configs/encoder/roberta_isot_raw.yaml --seeds 42
+configs/encoder/roberta_isot_raw.yaml --seeds 13
+configs/encoder/roberta_isot_raw.yaml --seeds 2026
+configs/encoder/modernbert_covid_clean.yaml --seeds 13 42 2026

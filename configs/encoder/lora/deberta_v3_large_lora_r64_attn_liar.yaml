@@ -1,0 +1,22 @@
+# T26 LoRA: microsoft/deberta-v3-large on liar, rank 64 adapters on query/key/value projections of the encoder;
+# the head trains in full. Batch settings as the T19 full fine-tune (deberta_v3_large_liar),
+# lr 1e-4, 10% warmup: at 3e-4 roberta-large collapsed to one class (val 0.17); 1e-4 gave
+# val 0.50 and 3e-5 0.43 (rank 16, attention, PUBHEALTH).
+run:
+  name: deberta_v3_large_lora_r64_attn_liar
+  seed: 42
+data:
+  dataset: liar
+  variant: raw
+model:
+  family: encoder
+  name: microsoft/deberta-v3-large
+  method: lora
+  lora_r: 64
+  lora_targets: attention
+train:
+  learning_rate: 1.0e-4
+  batch_size: 16
+  eval_batch_size: 16  # deberta-v3-large: 64 nearly fills a 24 GB GPU
+  epochs: 4
+  warmup_ratio: 0.1

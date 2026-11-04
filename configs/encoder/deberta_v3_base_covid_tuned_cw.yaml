@@ -1,0 +1,24 @@
+# T29 ablation: T18's tuned DeBERTa-v3-base settings on covid (deberta_v3_base_covid_tuned.yaml,
+# unchanged) with one switch on: class-weighted loss (class_weights: balanced).
+# Compare with deberta_v3_base_covid_tuned, 3 seeds each.
+run:
+  name: deberta_v3_base_covid_tuned_cw
+  seed: 42
+data:
+  dataset: covid
+  variant: raw
+  max_length: 128
+model:
+  family: encoder
+  name: microsoft/deberta-v3-base
+  method: full
+  dropout: 0.02845209001254729
+  freeze_layers: 0
+train:
+  learning_rate: 2.5424644553537235e-05
+  batch_size: 32
+  epochs: 3
+  warmup_ratio: 0.17173433768017732
+  weight_decay: 0.09472503894443988
+  grad_accum: 2
+  class_weights: balanced

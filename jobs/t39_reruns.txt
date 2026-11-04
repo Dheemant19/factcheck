@@ -1,0 +1,6 @@
+# T39 re-runs of collapsed seeds (roberta-large predicted one class at lr 1e-5):
+# roberta_large_pubhealth seed 2026 (macro-F1 0.163): same config re-run, now 0.468.
+# roberta_large_liar seed 42 (0.054) collapsed again with the same config, so the config now
+# uses 10% warmup and all 3 seeds are re-run with it.
+configs/encoder/roberta_large_pubhealth.yaml --seeds 2026
+configs/encoder/roberta_large_liar.yaml --seeds 42 13 2026

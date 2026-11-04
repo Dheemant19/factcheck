@@ -1,0 +1,23 @@
+# T29 ablation: T18's tuned DeBERTa-v3-base settings on liar (deberta_v3_base_liar_tuned.yaml,
+# unchanged) with one switch on: class-weighted loss (class_weights: balanced).
+# Compare with deberta_v3_base_liar_tuned, 3 seeds each.
+run:
+  name: deberta_v3_base_liar_tuned_cw
+  seed: 42
+data:
+  dataset: liar
+  variant: raw
+model:
+  family: encoder
+  name: microsoft/deberta-v3-base
+  method: full
+  dropout: 0.003442412793401836
+  freeze_layers: 4
+train:
+  learning_rate: 2.7296085510843067e-05
+  batch_size: 32
+  epochs: 3
+  warmup_ratio: 0.11739540424518144
+  weight_decay: 0.08295603100588275
+  grad_accum: 1
+  class_weights: balanced

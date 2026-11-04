@@ -1,0 +1,28 @@
+# T26 LoRA sweep: rank 4/16/64 x attention-only vs all linear layers, roberta-large and
+# deberta-v3-large, LIAR and PUBHEALTH, seed 42 (lr 1e-4, 10% warmup); the best settings then
+# get 3 seeds.
+# Compare with the T19 full fine-tunes: trainable_params, peak_gpu_mem_mb, train_seconds.
+configs/encoder/lora/roberta_large_lora_r64_attn_pubhealth.yaml --seeds 42
+configs/encoder/lora/roberta_large_lora_r64_all_pubhealth.yaml --seeds 42
+configs/encoder/lora/roberta_large_lora_r16_attn_pubhealth.yaml --seeds 42
+configs/encoder/lora/roberta_large_lora_r16_all_pubhealth.yaml --seeds 42
+configs/encoder/lora/roberta_large_lora_r4_attn_pubhealth.yaml --seeds 42
+configs/encoder/lora/roberta_large_lora_r4_all_pubhealth.yaml --seeds 42
+configs/encoder/lora/deberta_v3_large_lora_r64_attn_pubhealth.yaml --seeds 42
+configs/encoder/lora/deberta_v3_large_lora_r64_all_pubhealth.yaml --seeds 42
+configs/encoder/lora/deberta_v3_large_lora_r16_attn_pubhealth.yaml --seeds 42
+configs/encoder/lora/deberta_v3_large_lora_r16_all_pubhealth.yaml --seeds 42
+configs/encoder/lora/deberta_v3_large_lora_r4_attn_pubhealth.yaml --seeds 42
+configs/encoder/lora/deberta_v3_large_lora_r4_all_pubhealth.yaml --seeds 42
+configs/encoder/lora/roberta_large_lora_r64_attn_liar.yaml --seeds 42
+configs/encoder/lora/roberta_large_lora_r64_all_liar.yaml --seeds 42
+configs/encoder/lora/roberta_large_lora_r16_attn_liar.yaml --seeds 42
+configs/encoder/lora/roberta_large_lora_r16_all_liar.yaml --seeds 42
+configs/encoder/lora/roberta_large_lora_r4_attn_liar.yaml --seeds 42
+configs/encoder/lora/roberta_large_lora_r4_all_liar.yaml --seeds 42
+configs/encoder/lora/deberta_v3_large_lora_r64_attn_liar.yaml --seeds 42
+configs/encoder/lora/deberta_v3_large_lora_r64_all_liar.yaml --seeds 42
+configs/encoder/lora/deberta_v3_large_lora_r16_attn_liar.yaml --seeds 42
+configs/encoder/lora/deberta_v3_large_lora_r16_all_liar.yaml --seeds 42
+configs/encoder/lora/deberta_v3_large_lora_r4_attn_liar.yaml --seeds 42
+configs/encoder/lora/deberta_v3_large_lora_r4_all_liar.yaml --seeds 42

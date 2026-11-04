@@ -1,0 +1,17 @@
+# T28 shortcut study (E7): ModernBERT-base, the best base encoder on COVID in T17, trained on
+# the CLEAN covid variant (links and handles masked as HTTPURL / @USER, T13) to compare with
+# modernbert_covid (raw). Same settings as that run.
+run:
+  name: modernbert_covid_clean
+  seed: 42
+data:
+  dataset: covid
+  variant: clean
+model:
+  family: encoder
+  name: answerdotai/ModernBERT-base
+  method: full
+train:
+  learning_rate: 2.0e-5
+  batch_size: 32
+  epochs: 4

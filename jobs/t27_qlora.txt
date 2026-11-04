@@ -1,0 +1,6 @@
+# T27 QLoRA: Qwen3-8B, 4-bit, rank 16 LoRA on all linear layers + classification head, seed 42.
+# One 24 GB GPU each (about 7 GB at 128 tokens). Longest first. model/ is the adapter + head.
+configs/llm/qwen3_8b_qlora_isot.yaml
+configs/llm/qwen3_8b_qlora_pubhealth.yaml
+configs/llm/qwen3_8b_qlora_liar.yaml
+configs/llm/qwen3_8b_qlora_covid.yaml

@@ -1,0 +1,23 @@
+# T29 ablation: T18's tuned DeBERTa-v3-base settings on pubhealth (deberta_v3_base_pubhealth_tuned.yaml,
+# unchanged) with one switch on: class-weighted loss (class_weights: balanced).
+# Compare with deberta_v3_base_pubhealth_tuned, 3 seeds each.
+run:
+  name: deberta_v3_base_pubhealth_tuned_cw
+  seed: 42
+data:
+  dataset: pubhealth
+  variant: raw
+model:
+  family: encoder
+  name: microsoft/deberta-v3-base
+  method: full
+  dropout: 0.01415295581173074
+  freeze_layers: 0
+train:
+  learning_rate: 7.884843323281146e-06
+  batch_size: 16
+  epochs: 5
+  warmup_ratio: 0.14168828056181615
+  weight_decay: 0.07378326182958159
+  grad_accum: 1
+  class_weights: balanced

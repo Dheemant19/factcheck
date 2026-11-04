@@ -1,0 +1,23 @@
+# T27 QLoRA: Qwen3-8B with a classification head on pubhealth, weights frozen in 4-bit NF4, rank 16
+# LoRA adapters on every linear layer and the head trained (bf16 compute, gradient
+# checkpointing). Needs one 24 GB GPU. model/ holds the adapters and head (load_qlora).
+run:
+  name: qwen3_8b_qlora_pubhealth
+  seed: 42
+data:
+  dataset: pubhealth
+  variant: raw
+model:
+  family: llm
+  name: Qwen/Qwen3-8B
+  method: qlora
+  lora_r: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+  lora_targets: all_linear
+train:
+  learning_rate: 2.0e-4
+  batch_size: 8
+  grad_accum: 2  # effective batch 16 at 384 tokens
+  eval_batch_size: 16
+  epochs: 2
