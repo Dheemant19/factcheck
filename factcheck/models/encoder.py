@@ -1,4 +1,4 @@
-"""Fine-tuned transformer encoders (owners M1 + M2, T06; LoRA follows in T22).
+"""Fine-tuned transformer encoders (owners M1 + M2, T06; LoRA T26).
 
 Any Hugging Face encoder with a sequence-classification head: DistilBERT, BERT, RoBERTa,
 DeBERTa-v3, ModernBERT and the domain models. Settings follow plan Section 10: AdamW with
@@ -24,6 +24,23 @@ Long texts (ISOT) can keep the head and the tail of the article instead of only 
 Two settings the Optuna search (T18) varies: ``model.dropout`` sets every dropout rate of the
 encoder and its head, and ``model.freeze_layers: k`` freezes the embeddings and the bottom k
 layers.
+
+``model.method: lora`` (T26) trains low-rank adapters instead of every weight: rank
+``lora_r``, scale ``lora_alpha`` (default 2 x rank), on the query/key/value projections
+(``lora_targets: attention``) or on every linear layer of the encoder (``all_linear``). The
+classification head (and DeBERTa's pooler) still trains in full. The adapters are merged into
+the weights before ``model/`` is saved, so a LoRA model loads and runs like any other.
+
+``model.method: qlora`` (T27, configs in ``configs/llm/``) is the same LoRA on a causal LM with
+a classification head (Qwen3-8B as ``Qwen3ForSequenceClassification``) whose weights are
+loaded in 4-bit NF4 and frozen, with gradient checkpointing. A 4-bit model cannot be merged
+cleanly, so ``model/`` holds the adapters and the head only; load them with
+``load_qlora(model_dir)``. ``data.train_rows: n`` trains on a stratified sample of n rows (ISOT's
+15k subset); unlike ``subset``, it is a real run, not a debug run.
+
+``train.class_weights: balanced`` (T29 ablation) weights the cross-entropy loss by inverse
+class frequency in the training split, n / (classes x count), so rare labels (LIAR's
+pants-fire, PUBHEALTH's unproven) count as much as common ones.
 """
 
 from __future__ import annotations
@@ -68,11 +85,16 @@ DEFAULTS = {
         "max_length": None,  # tokens; None = the dataset's max_length from the registry
         "head_tokens": None,  # keep this many head tokens and fill the rest from the tail
         "subset": None,  # train on a stratified sample of this many rows (debug runs only)
+        "train_rows": None,  # the same, for a real run (T27: ISOT's 15k QLoRA subset)
     },
     "model": {
         "method": "full",
         "dropout": None,  # None = the pretrained model's own rates (0.1 for most encoders)
         "freeze_layers": 0,  # freeze the embeddings and this many bottom layers
+        "lora_r": 8,  # method lora only (T26)
+        "lora_alpha": None,  # None = 2 x lora_r
+        "lora_dropout": 0.1,
+        "lora_targets": "attention",  # attention (query/key/value) or all_linear
     },
     "train": {
         "learning_rate": 2.0e-5,
@@ -85,6 +107,7 @@ DEFAULTS = {
         "grad_clip": 1.0,
         "precision": "bf16",  # bf16 or fp32; bf16 falls back to fp32 on GPUs without it
         "early_stopping_patience": 2,
+        "class_weights": None,  # None or "balanced": inverse-frequency loss weights (T29)
         "num_workers": 0,
     },
 }
@@ -227,6 +250,54 @@ def load_model(name: str, info: DatasetInfo, dropout: float | None = None):  # n
     )
 
 
+def load_4bit_model(name: str, info: DatasetInfo, pad_token_id: int):  # noqa: ANN201
+    """A causal LM with a fresh classification head, weights in 4-bit NF4 (T27, QLoRA).
+
+    Computation runs in bf16. The head scores the last real token, so the model has to know
+    the pad token.
+    """
+    from peft import prepare_model_for_kbit_training
+    from transformers import BitsAndBytesConfig
+
+    quant = BitsAndBytesConfig(
+        load_in_4bit=True,
+        bnb_4bit_quant_type="nf4",
+        bnb_4bit_use_double_quant=True,
+        bnb_4bit_compute_dtype=torch.bfloat16,
+    )
+    model = AutoModelForSequenceClassification.from_pretrained(
+        name,
+        num_labels=info.num_labels,
+        id2label=info.id2label,
+        label2id=info.label2id,
+        pad_token_id=pad_token_id,
+        quantization_config=quant,
+        dtype=torch.bfloat16,
+        device_map={"": 0},
+    )
+    return prepare_model_for_kbit_training(
+        model,
+        use_gradient_checkpointing=True,
+        gradient_checkpointing_kwargs={"use_reentrant": False},
+    )
+
+
+def load_qlora(model_dir: str | Path):  # noqa: ANN201
+    """A saved QLoRA run (``outputs/<run>/seed<N>/model``): the 4-bit base model with its
+    trained adapters and head, ready for inference, and its tokenizer."""
+    from peft import PeftConfig, PeftModel
+
+    from factcheck.data import get_dataset
+
+    model_dir = Path(model_dir)
+    with open(model_dir.parent / "config.yaml", encoding="utf-8") as f:
+        info = get_dataset(yaml.safe_load(f)["data"]["dataset"])
+    tokenizer = AutoTokenizer.from_pretrained(model_dir)
+    base_name = PeftConfig.from_pretrained(model_dir).base_model_name_or_path
+    base = load_4bit_model(base_name, info, tokenizer.pad_token_id)
+    return PeftModel.from_pretrained(base, model_dir).eval(), tokenizer
+
+
 def freeze_bottom_layers(model: torch.nn.Module, k: int) -> None:
     """Freeze the embeddings and the bottom ``k`` transformer layers (``k = 0`` freezes nothing)."""
     if not k:
@@ -247,6 +318,56 @@ def freeze_bottom_layers(model: torch.nn.Module, k: int) -> None:
     for module in (base.embeddings, *layers[:k]):
         for p in module.parameters():
             p.requires_grad = False
+
+
+# Query, key and value projections: BERT and RoBERTa, DeBERTa-v3, DistilBERT, ModernBERT (fused).
+ATTENTION_MODULES = (
+    "query",
+    "key",
+    "value",
+    "query_proj",
+    "key_proj",
+    "value_proj",
+    "q_lin",
+    "k_lin",
+    "v_lin",
+    "Wqkv",
+    "q_proj",  # Qwen3 (T27)
+    "k_proj",
+    "v_proj",
+)
+# Layers on top of the encoder that start untrained, so they train in full next to LoRA.
+HEAD_MODULES = ("pooler", "pre_classifier", "head", "classifier", "score")
+
+
+def add_lora(model: torch.nn.Module, mcfg: dict) -> torch.nn.Module:
+    """Wrap the encoder in LoRA adapters (T26); everything but the adapters and the head is
+    frozen. Targets are full module names inside the encoder, so a head layer that happens to
+    share a name (RoBERTa's ``classifier.dense``) is never given an adapter."""
+    from peft import LoraConfig, TaskType, get_peft_model
+
+    targets = mcfg["lora_targets"]
+    if targets not in ("attention", "all_linear"):
+        raise ValueError(f"lora_targets must be attention or all_linear, not {targets!r}")
+    prefix = model.base_model_prefix
+    names = [
+        f"{prefix}.{name}"
+        for name, module in getattr(model, prefix).named_modules()
+        if isinstance(module, torch.nn.Linear)
+        and (targets == "all_linear" or name.rsplit(".", 1)[-1] in ATTENTION_MODULES)
+    ]
+    if not names:
+        raise ValueError(f"lora_targets {targets}: no such layers in {type(model).__name__}")
+    rank = int(mcfg["lora_r"])
+    config = LoraConfig(
+        task_type=TaskType.SEQ_CLS,
+        r=rank,
+        lora_alpha=int(mcfg["lora_alpha"] or 2 * rank),
+        lora_dropout=float(mcfg["lora_dropout"]),
+        target_modules=names,
+        modules_to_save=[m for m in HEAD_MODULES if m != prefix and hasattr(model, m)],
+    )
+    return get_peft_model(model, config)
 
 
 def count_trainable(model: torch.nn.Module) -> int:
@@ -273,6 +394,30 @@ def predict_proba(model, dataset: Dataset, collator, batch_size: int, bf16: bool
     return torch.cat(out).numpy()
 
 
+def balanced_weights(labels: Sequence[int], num_labels: int) -> torch.Tensor:
+    """Inverse-frequency class weights, n / (classes x count); 1.0 for every class if balanced."""
+    counts = np.bincount(np.asarray(labels), minlength=num_labels).astype(np.float64)
+    if (counts == 0).any():
+        raise ValueError(f"class_weights: a class has no training rows ({counts.tolist()})")
+    return torch.tensor(counts.sum() / (num_labels * counts), dtype=torch.float32)
+
+
+class WeightedLossTrainer(Trainer):
+    """``Trainer`` with a class-weighted cross-entropy loss (T29)."""
+
+    def __init__(self, *args, class_weights: torch.Tensor, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.class_weights = class_weights
+
+    def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
+        labels = inputs.pop("labels")
+        outputs = model(**inputs)
+        loss = torch.nn.functional.cross_entropy(
+            outputs.logits.float(), labels, weight=self.class_weights.to(labels.device)
+        )
+        return (loss, outputs) if return_outputs else loss
+
+
 def train_encoder(cfg: dict, callbacks: Sequence = (), save: bool = True) -> dict:
     """Fine-tune one encoder run from a config dict (see ``configs/encoder/``).
 
@@ -282,14 +427,17 @@ def train_encoder(cfg: dict, callbacks: Sequence = (), save: bool = True) -> dic
     """
     cfg = with_defaults(cfg)
     run, data, mcfg, tcfg = cfg["run"], cfg["data"], cfg["model"], cfg["train"]
-    if mcfg["method"] != "full":
-        raise NotImplementedError(f"model.method {mcfg['method']!r}: LoRA is T22")
+    if mcfg["method"] not in ("full", "lora", "qlora"):
+        raise ValueError(f"model.method must be full, lora or qlora, not {mcfg['method']!r}")
+    qlora = mcfg["method"] == "qlora"
     seed = int(run["seed"])
     hf_set_seed(seed)
     info: DatasetInfo = get_dataset(data["dataset"])
     splits = load_inputs(cfg)  # load_splits + the features switches (metadata, evidence; T15)
     if data["subset"]:
         splits["train"] = stratified_subset(splits["train"], int(data["subset"]), seed)
+    if data["train_rows"]:
+        splits["train"] = stratified_subset(splits["train"], int(data["train_rows"]), seed)
     max_length = int(data["max_length"] or info.max_length)
     batch_size = int(tcfg["batch_size"] or (32 if max_length < 384 else 16))
     cuda = torch.cuda.is_available()
@@ -301,8 +449,15 @@ def train_encoder(cfg: dict, callbacks: Sequence = (), save: bool = True) -> dic
         split: tokenized_split(df, tokenizer, name, max_length, data["head_tokens"])
         for split, df in splits.items()
     }
-    model = load_model(name, info, mcfg["dropout"])
+    if qlora:
+        if tokenizer.pad_token is None:
+            tokenizer.pad_token = tokenizer.eos_token
+        model = load_4bit_model(name, info, tokenizer.pad_token_id)
+    else:
+        model = load_model(name, info, mcfg["dropout"])
     freeze_bottom_layers(model, int(mcfg["freeze_layers"]))
+    if mcfg["method"] in ("lora", "qlora"):
+        model = add_lora(model, mcfg)
     trainable = count_trainable(model)
     print(
         f"{run['name']} seed {seed}: {name} on {info.name} ({info.num_labels} labels), "
@@ -345,7 +500,17 @@ def train_encoder(cfg: dict, callbacks: Sequence = (), save: bool = True) -> dic
         return {k: m[k] for k in ("macro_f1", "accuracy", "weighted_f1", "ece")}
 
     collator = DataCollatorWithPadding(tokenizer)
-    trainer = Trainer(
+    weighting = tcfg["class_weights"]
+    if weighting not in (None, "balanced"):
+        raise ValueError(f"train.class_weights must be balanced or left out, not {weighting!r}")
+    trainer_class, trainer_kwargs = Trainer, {}
+    if weighting:
+        weights = balanced_weights(splits["train"]["label"], info.num_labels)
+        shown = dict(zip(info.labels, weights.round(decimals=3).tolist(), strict=True))
+        print(f"  class weights {shown}")
+        trainer_class, trainer_kwargs = WeightedLossTrainer, {"class_weights": weights}
+    trainer = trainer_class(
+        **trainer_kwargs,
         model=model,
         args=args,
         train_dataset=datasets["train"],
@@ -378,7 +543,7 @@ def train_encoder(cfg: dict, callbacks: Sequence = (), save: bool = True) -> dic
         "seed": seed,
         "dataset": info.name,
         "variant": data.get("variant", "raw"),
-        "family": "encoder",
+        "family": mcfg.get("family", "encoder"),
         "model_name": name,
         "best_epoch": best["epoch"],
         "best_val_macro_f1": best["val_macro_f1"],
@@ -405,13 +570,16 @@ def train_encoder(cfg: dict, callbacks: Sequence = (), save: bool = True) -> dic
             f"  WARNING: validation macro-F1 is {rescored['macro_f1']:.4f} after training but "
             f"{best['val_macro_f1']:.4f} during it; check the prediction order"
         )
+    if mcfg["method"] == "lora":  # fold the adapters into the weights: one plain model to save
+        trainer.model = trainer.model.merge_and_unload()
     (run_dir / "model").mkdir(parents=True, exist_ok=True)
     trainer.save_model(str(run_dir / "model"))  # the best epoch, with its tokenizer
     shutil.rmtree(run_dir / "checkpoints", ignore_errors=True)  # model/ holds the best one
     with open(run_dir / "config.yaml", "w", encoding="utf-8") as f:
         yaml.safe_dump(cfg, f, sort_keys=False)
 
-    model = trainer.model.float().eval()  # timed in fp32, the way the app runs it (spec S6)
+    # Timed in fp32, the way the app runs it (spec S6); a 4-bit QLoRA model runs as it is.
+    model = trainer.model.eval() if qlora else trainer.model.float().eval()
 
     @torch.no_grad()
     def predict_texts(items: list) -> np.ndarray:
