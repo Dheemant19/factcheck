@@ -16,7 +16,22 @@ and ModernBERT, and every base encoder on ISOT with source shortcuts removed
 `jobs/queue.sh jobs/t17_encoders.txt` (one worker per GPU).
 
 `llm/` holds the prompted Qwen3-8B runs (T07 zero-shot). They train nothing and need a
-cluster GPU (about 17 GB in bf16).
+cluster GPU (about 17 GB in bf16). T20 adds `method: knn` (the 8 most similar training claims
+and their verdicts in the prompt) on all four datasets, and `method: rag` with
+`features.use_evidence` (evidence sentences in the prompt) on PUBHEALTH and Climate-FEVER, own
+evidence and open retrieval from the pool. The ISOT runs set `data.llm_subset: true` and score
+only the fixed 2,000-article test subset. Run them all with `jobs/queue.sh jobs/t20_llm.txt`.
+T27 adds `method: qlora` (`qwen3_8b_qlora_*.yaml`): Qwen3-8B in 4-bit with LoRA and a
+classification head, trained through the encoder trainer; `model/` holds the adapters and head.
+
+`encoder/lora/` holds the T26 LoRA sweep (`method: lora`, `lora_r`, `lora_targets: attention`
+or `all_linear`) on roberta-large and deberta-v3-large, LIAR and PUBHEALTH. They use lr 1e-4
+and 10% warmup; roberta-large at rank 64 also needs `lora_alpha: 32` (the default 2 x rank
+collapsed it to one class).
+
+`encoder/*_tuned_{meta,evidence,cw}.yaml` are the T29 ablations: a T18 tuned config with one
+switch on (metadata, evidence, or `train.class_weights: balanced`). `roberta_isot_raw.yaml`
+and `modernbert_covid_clean.yaml` are the other halves of the T28 raw vs clean comparison.
 
 `features` switches the two input extras of the ablation (E5) on and off without code changes
 (T15; both are off when left out). `use_metadata` (LIAR only) prefixes each statement with
