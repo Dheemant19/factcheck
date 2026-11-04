@@ -1,0 +1,19 @@
+# T20 evidence RAG LLM, open retrieval: as qwen3_8b_rag_climate_fever, but the 5 sentences are
+# retrieved from the pool of every Climate-FEVER evidence sentence (the honest setting: a
+# claim's own evidence is not given).
+run:
+  name: qwen3_8b_rag_pool_climate_fever
+  seed: 42
+data:
+  dataset: climate_fever
+  variant: raw
+model:
+  family: llm
+  name: Qwen/Qwen3-8B
+  method: rag
+features:
+  use_evidence: true
+  evidence_k: 5
+  evidence_source: pool
+train:
+  eval_batch_size: 16

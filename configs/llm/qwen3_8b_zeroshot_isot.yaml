@@ -1,0 +1,15 @@
+# T20 baseline for qwen3_8b_knn_isot: Qwen3-8B zero-shot on the fixed 2,000-article ISOT test
+# subset (T07 had no ISOT run), so kNN and zero-shot compare on the same articles.
+run:
+  name: qwen3_8b_zeroshot_isot
+  seed: 42
+data:
+  dataset: isot
+  variant: raw
+  llm_subset: true
+model:
+  family: llm
+  name: Qwen/Qwen3-8B
+  method: zeroshot
+train:
+  eval_batch_size: 8

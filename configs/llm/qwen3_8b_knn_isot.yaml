@@ -1,0 +1,17 @@
+# T20 kNN few-shot LLM: Qwen3-8B (thinking off) on isot with its 8 most similar TRAINING
+# articles (title + start, cut to 60 words) and their verdicts in the prompt. Prompts reach
+# about 2,000 tokens, so only the fixed 2,000-article test subset is scored, in small batches.
+run:
+  name: qwen3_8b_knn_isot
+  seed: 42
+data:
+  dataset: isot
+  variant: raw
+  llm_subset: true
+model:
+  family: llm
+  name: Qwen/Qwen3-8B
+  method: knn
+  k: 8
+train:
+  eval_batch_size: 4

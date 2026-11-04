@@ -1,0 +1,16 @@
+# T20 kNN few-shot LLM: Qwen3-8B (thinking off) on liar with its 8 most similar TRAINING claims
+# and their verdicts in the prompt (factcheck.prompts.knn_messages), label-probability scoring,
+# no training. Needs about 17 GB of GPU memory in bf16, so run it on the cluster.
+run:
+  name: qwen3_8b_knn_liar
+  seed: 42
+data:
+  dataset: liar
+  variant: raw
+model:
+  family: llm
+  name: Qwen/Qwen3-8B
+  method: knn
+  k: 8
+train:
+  eval_batch_size: 16

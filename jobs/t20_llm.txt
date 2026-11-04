@@ -1,0 +1,10 @@
+# T20 Qwen3-8B kNN few-shot and evidence RAG runs. Run with jobs/queue.sh (one 24 GB GPU each,
+# about 17 GB). Scoring is deterministic, so one seed. Longest first.
+configs/llm/qwen3_8b_knn_isot.yaml
+configs/llm/qwen3_8b_knn_pubhealth.yaml
+configs/llm/qwen3_8b_knn_liar.yaml
+configs/llm/qwen3_8b_knn_covid.yaml
+configs/llm/qwen3_8b_zeroshot_isot.yaml
+configs/llm/qwen3_8b_rag_pubhealth.yaml
+configs/llm/qwen3_8b_rag_climate_fever.yaml
+configs/llm/qwen3_8b_rag_pool_climate_fever.yaml

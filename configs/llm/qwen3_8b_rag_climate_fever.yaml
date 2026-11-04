@@ -1,0 +1,18 @@
+# T20 evidence RAG LLM: Qwen3-8B (thinking off) on climate_fever (test split only) with each
+# claim's 5 given evidence sentences, most similar first.
+run:
+  name: qwen3_8b_rag_climate_fever
+  seed: 42
+data:
+  dataset: climate_fever
+  variant: raw
+model:
+  family: llm
+  name: Qwen/Qwen3-8B
+  method: rag
+features:
+  use_evidence: true
+  evidence_k: 5
+  evidence_source: own
+train:
+  eval_batch_size: 16
