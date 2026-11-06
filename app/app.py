@@ -1,35 +1,35 @@
-"""Fact-Check Lab: paste a claim, get an explained verdict (owner M5).
+"""Fact-Check Lab: paste a claim, get an explained verdict (T11, T22, T35).
 
     streamlit run app/app.py
 
-Works today: the rating ladder, verdict and response time from any encoder trained with
-``python -m factcheck.train`` (models are found under outputs/), side-by-side model
-comparison, the shortcut demo (once raw- and clean-trained ISOT models exist) and the
-results explorer (the shortcut tab appears once an ISOT model exists). Still to add:
-evidence (M3), SHAP "why" highlights (M4) and the RAG LLM (M3); waiting_panel() is ready
-for them.
+Check a claim: the verdict on the dataset's rating ladder from any trained encoder, the
+evidence (similar already fact-checked claims with their verdicts, and the closest evidence
+sentences from PUBHEALTH's fact-check articles and Climate-FEVER), the words that drove it
+(SHAP), an optional second opinion from Qwen3-8B with its QLoRA adapter, and the response time
+against specs S6 (encoder) and S7 (retrieval + LLM verdict). Compare models side by side, run
+the shortcut demo (a Reuters dateline flips the raw-trained ISOT model), and read every logged
+run and the specs board from results/runs.csv.
 
-The theme lives in app/.streamlit/config.toml; the app uses native Streamlit only.
+Models are found under outputs/<run>/seed<N>/model; the engine is ``factcheck.serve``. The
+theme lives in app/.streamlit/config.toml; the app uses native Streamlit only.
 """
 
 from __future__ import annotations
 
 import re
-import time
-from collections.abc import Callable
 from pathlib import Path
 
 import altair as alt
 import pandas as pd
 import streamlit as st
 import torch
-import yaml
 
-from factcheck.data import get_dataset
+from factcheck import serve
 from factcheck.data.prepare import load_splits
 from factcheck.evaluate import check_specs
 from factcheck.paths import OUTPUT_DIR
 from factcheck.results import load_runs
+from factcheck.retrieval import RETRIEVAL_DIR
 
 EXAMPLE_CLAIMS = [
     "Drinking hot water every 15 minutes kills the coronavirus.",
@@ -37,9 +37,9 @@ EXAMPLE_CLAIMS = [
     "Says the unemployment rate has doubled since the president took office.",
     "Vitamin D supplements cure COVID-19 in 24 hours.",
 ]
-# The app times the encoder alone, so it reports against S6 (encoder latency). S7, the full
-# retrieval + LLM response, can be timed once the RAG pipeline is wired in.
-SPEC_S6_SECONDS = 0.050
+SPEC_S6_SECONDS = 0.050  # encoder latency per claim
+SPEC_S7_SECONDS = 5.0  # full response: retrieval + LLM verdict
+SPEC_S8_GB = 8.0  # everything in the app on the laptop GPU
 DATELINE = "WASHINGTON (Reuters) - "
 
 VIEWS = {
@@ -49,6 +49,18 @@ VIEWS = {
     "results": ":material/leaderboard: Results",
 }
 CLAIM_KEYS = ("claim_check", "claim_compare")
+DATASETS = {
+    "covid": "COVID",
+    "liar": "LIAR",
+    "pubhealth": "PUBHEALTH",
+    "isot": "ISOT",
+    "climate_fever": "Climate-FEVER",
+}
+MODEL_NAMES = {
+    "digitalepidemiologylab/covid-twitter-bert-v2": "COVID-Twitter-BERT",
+    "allenai/scibert_scivocab_uncased": "SciBERT",
+    "Qwen/Qwen3-8B": "Qwen3-8B QLoRA",
+}
 
 # Where each dataset label sits between false (0) and true (1). Labels with no place on
 # that scale (PUBHEALTH "unproven", Climate-FEVER "not_enough_info") go last, in grey.
@@ -99,69 +111,166 @@ VERDICTS = [
 # --------------------------------------------------------------------------- models
 
 
-def find_models() -> dict[str, Path]:
-    """Every saved encoder: outputs/<run>/seed<N>/model with its config.yaml next to it."""
-    return {
-        str(p): p
-        for p in sorted(OUTPUT_DIR.glob("*/seed*/model"))
-        if (p / "config.json").exists() and (p.parent / "config.yaml").exists()
-    }
+@st.cache_data(ttl=60)
+def logged_test_f1() -> dict[tuple[str, int], float]:
+    """Test macro-F1 of every logged (run, seed), read from results/runs.csv."""
+    runs = load_runs()
+    test = runs[(runs["split"] == "test") & runs["subset"].isna()]
+    return {(r.run_name, int(r.seed)): float(r.macro_f1) for r in test.itertuples()}
 
 
-@st.cache_data(max_entries=64)
+@st.cache_data(max_entries=128)
 def run_config(model_dir: str) -> dict:
-    return yaml.safe_load((Path(model_dir).parent / "config.yaml").read_text(encoding="utf-8"))
+    return serve.run_config(model_dir)
+
+
+def test_f1(model_dir: str) -> float | None:
+    run = run_config(model_dir)["run"]
+    return logged_test_f1().get((run["name"], int(run["seed"])))
+
+
+def find_models(include_llm: bool = False) -> dict[str, Path]:
+    """Every saved model the app can run, by dataset, best logged test macro-F1 first.
+
+    QLoRA adapters (Qwen3-8B, about 6 GB of GPU memory) are listed only when the LLM is on.
+    """
+    found = [
+        p
+        for p in OUTPUT_DIR.glob("*/seed*/model")
+        if serve.is_servable(p) and (include_llm or not serve.is_qlora(p))
+    ]
+    order = list(DATASETS)
+
+    def key(p: Path) -> tuple:
+        cfg = run_config(str(p))
+        dataset = cfg["data"]["dataset"]
+        return (order.index(dataset) if dataset in order else 99, -(test_f1(str(p)) or 0.0))
+
+    return {str(p): p for p in sorted(found, key=key)}
+
+
+def llm_adapters() -> dict[str, str]:
+    """Dataset -> the QLoRA adapter folder for it (the first seed found)."""
+    adapters = {}
+    for p in sorted(OUTPUT_DIR.glob("qwen3_8b_qlora_*/seed*/model")):
+        if serve.is_servable(p):
+            adapters.setdefault(run_config(str(p))["data"]["dataset"], str(p))
+    return adapters
+
+
+def model_label(model_dir: str) -> str:
+    name = run_config(model_dir)["model"]["name"]
+    return MODEL_NAMES.get(name, name.split("/")[-1])
 
 
 def plate(model_dir: str) -> str:
     """One fixed ID plate per model, used everywhere a model is named."""
     cfg = run_config(model_dir)
-    data, model = cfg["data"], cfg["model"]
-    parts = [data["dataset"], model["name"].split("/")[-1]]
-    if model.get("lora", {}).get("enabled"):
-        parts.append("LoRA")
+    data = cfg["data"]
+    parts = [DATASETS.get(data["dataset"], data["dataset"]), model_label(model_dir)]
+    if (cfg.get("features") or {}).get("use_evidence"):
+        parts.append("+ evidence")
     if data.get("variant", "raw") != "raw":
         parts.append(data["variant"])
     parts.append(f"seed {cfg['run']['seed']}")
+    f1 = test_f1(model_dir)
+    if f1 is not None:
+        parts.append(f"test F1 {f1:.3f}")
     return " · ".join(parts)
 
 
-@st.cache_resource(max_entries=4)
-def load_classifier(model_dir: str):  # noqa: ANN201
-    from transformers import AutoModelForSequenceClassification, AutoTokenizer
-
-    tokenizer = AutoTokenizer.from_pretrained(model_dir)
-    model = AutoModelForSequenceClassification.from_pretrained(model_dir).eval()
-    if torch.cuda.is_available():
-        model = model.cuda()
-    return model, tokenizer, get_dataset(run_config(model_dir)["data"]["dataset"])
+@st.cache_resource(max_entries=3, show_spinner=False)
+def load_encoder(model_dir: str) -> serve.Classifier:
+    return serve.Classifier(model_dir)
 
 
-@torch.no_grad()
-def classify(model_dir: str, claim: str) -> dict:
-    """Label probabilities, P(false) and the response time (model already loaded)."""
-    model, tokenizer, info = load_classifier(model_dir)
-    start = time.perf_counter()
-    inputs = tokenizer(claim, truncation=True, max_length=info.max_length, return_tensors="pt")
-    probs = torch.softmax(model(**inputs.to(model.device)).logits[0], dim=-1).cpu().numpy()
+@st.cache_resource(max_entries=1, show_spinner=False)
+def load_llm(model_dir: str) -> serve.Classifier:
+    return serve.Classifier(model_dir)  # 4-bit Qwen3-8B + adapter; one dataset at a time
+
+
+def classifier(model_dir: str) -> serve.Classifier:
+    """The loaded model; the first use shows a spinner, and loading is never timed."""
+    loader = load_llm if serve.is_qlora(model_dir) else load_encoder
+    message = (
+        "Loading Qwen3-8B in 4-bit with its adapter (first use only, about a minute)…"
+        if serve.is_qlora(model_dir)
+        else "Loading the model (first check only)…"
+    )
+    with st.spinner(message):
+        return loader(model_dir)
+
+
+# --------------------------------------------------------------------------- evidence
+
+
+def retrieval_ready(dataset: str | None) -> bool:
+    """Whether the retrieval caches exist, so a check never starts a minutes-long build."""
+    needed = [f"{pool}-evidence-" for pool in serve.EVIDENCE_POOLS]
+    if dataset in ("covid", "liar", "pubhealth", "isot"):
+        needed.append(f"{dataset}-claims-")
+    return all(any(RETRIEVAL_DIR.glob(f"{prefix}*.npy")) for prefix in needed)
+
+
+@st.cache_resource(show_spinner=False)
+def evidence_search() -> serve.EvidenceSearch:
+    search = serve.EvidenceSearch()
+    search.warm()
+    return search
+
+
+def find_evidence(claim: str, dataset: str) -> serve.Found | None:
+    if not retrieval_ready(dataset):
+        return None
+    with st.spinner("Loading the retrieval index (first check only)…"):
+        search = evidence_search()
+        search.warm(dataset)
+    return search.find(claim, dataset)
+
+
+def score(model_dir: str, claim: str) -> serve.Prediction:
+    """One model's verdict on a claim, with retrieved evidence when the model reads it."""
+    clf = classifier(model_dir)
+    found = find_evidence(claim, clf.info.name) if clf.uses_evidence else None
+    return clf.predict(claim, found.sentence_texts() if found else None)
+
+
+def check(model_dir: str, claim: str, use_llm: bool) -> dict:
+    """Everything the Check view shows, timed: retrieval, the encoder and the LLM."""
+    clf = classifier(model_dir)
+    found = find_evidence(claim, clf.info.name)
+    pred = clf.predict(claim, found.sentence_texts() if found and clf.uses_evidence else None)
+    llm_dir = llm_adapters().get(clf.info.name) if use_llm and not clf.qlora else None
+    llm = classifier(llm_dir).predict(claim) if llm_dir else None
     return {
-        "label_probs": {info.labels[i]: float(p) for i, p in enumerate(probs)},
-        "fake_prob": float(probs[info.fake_label_ids].sum()),
-        "elapsed": time.perf_counter() - start,
+        "claim": claim,
+        "model": model_dir,
+        "pred": pred,
+        "found": found,
+        "llm_dir": llm_dir,
+        "llm": llm,
+        "use_llm": use_llm,
+        "why": None,
     }
 
 
-def check(model_dir: str, claim: str) -> dict:
-    with st.spinner("Loading the model (first check only)…"):
-        load_classifier(model_dir)  # loading is not part of the timed response
-    return classify(model_dir, claim)
+# --------------------------------------------------------------------------- rating ladder
 
 
 def verdict(fake_prob: float) -> tuple[str, str, str]:
     return next((word, color, icon) for bound, word, color, icon in VERDICTS if fake_prob <= bound)
 
 
-# --------------------------------------------------------------------------- rating ladder
+def rung_name(label: str) -> str:
+    return RUNG_NAMES.get(label, label.replace("-", " ").replace("_", " ").capitalize())
+
+
+def rating_color(label: str) -> str:
+    """Badge colour of a verdict label: red false, orange mixed, green true, grey off-scale."""
+    score_ = TRUTH_SCORE.get(label)
+    if score_ is None:
+        return "gray"
+    return "red" if score_ <= 0.15 else "orange" if score_ < 0.75 else "green"
 
 
 def ladder_rungs(
@@ -175,10 +284,7 @@ def ladder_rungs(
     rungs = pd.DataFrame({"label": list(labels)})
     rungs["score"] = rungs["label"].map(TRUTH_SCORE)
     rungs = rungs.sort_values("score", na_position="last", kind="stable").reset_index(drop=True)
-    rungs["name"] = [
-        RUNG_NAMES.get(x, x.replace("-", " ").replace("_", " ").capitalize())
-        for x in rungs["label"]
-    ]
+    rungs["name"] = [rung_name(x) for x in rungs["label"]]
     rungs["order"] = range(len(rungs))
     rungs["prob"] = rungs["label"].map(probs) if probs else float("nan")
     rungs["pct"] = rungs["prob"].map(lambda p: "–" if pd.isna(p) else f"{p:.0%}")
@@ -251,36 +357,73 @@ def show_ladder(rungs: pd.DataFrame, height: int = 96, names: str = "all") -> No
         st.markdown("true :material/arrow_forward:", width="content")
 
 
+def prediction_rungs(model_dir: str, pred: serve.Prediction) -> pd.DataFrame:
+    return ladder_rungs(tuple(pred.label_probs), pred.label_probs, pred.fake_prob)
+
+
 def duration(seconds: float) -> str:
     return f"{seconds * 1000:.0f} ms" if seconds < 1 else f"{seconds:.2f} s"
 
 
-def verdict_line(result: dict, rungs: pd.DataFrame) -> None:
-    word, color, icon = verdict(result["fake_prob"])
+def verdict_line(pred: serve.Prediction, rungs: pd.DataFrame) -> None:
+    word, color, icon = verdict(pred.fake_prob)
     lit = rungs[rungs["lit"]].iloc[0]
-    within = result["elapsed"] <= SPEC_S6_SECONDS
+    within = pred.seconds <= SPEC_S6_SECONDS
     with st.container(horizontal=True, vertical_alignment="center", gap="small"):
         st.markdown(f"### :{color}[{icon} {word}]", width="content")
-        st.badge(f"{result['fake_prob']:.0%} probability false", color=color)
+        st.badge(f"{pred.fake_prob:.0%} probability false", color=color)
         st.badge(f"Top label: {lit['name']}", color="gray")
         st.badge(
-            f"{duration(result['elapsed'])} encoder · {'within' if within else 'over'} the "
+            f"{duration(pred.seconds)} encoder · {'within' if within else 'over'} the "
             f"{SPEC_S6_SECONDS * 1000:.0f} ms target (S6)",
             icon=":material/timer:",
             color="green" if within else "orange",
         )
 
 
+def response_line(result: dict) -> None:
+    """Spec S7: the full response is retrieval plus the LLM verdict (and the encoder)."""
+    found, pred, llm = result["found"], result["pred"], result["llm"]
+    parts = [("retrieval", found.seconds if found else None), ("encoder", pred.seconds)]
+    parts.append(("Qwen3-8B", llm.seconds if llm else None))
+    timed = [(name, s) for name, s in parts if s is not None]
+    total = sum(s for _, s in timed)
+    breakdown = " + ".join(f"{name} {duration(s)}" for name, s in timed)
+    if llm is None:
+        st.caption(
+            f"Response {duration(total)} ({breakdown}). Spec S7 times retrieval plus the LLM "
+            "verdict: turn on the Qwen3-8B second opinion in the sidebar to measure it."
+        )
+        return
+    within = total <= SPEC_S7_SECONDS
+    with st.container(horizontal=True, vertical_alignment="center", gap="small"):
+        st.badge(
+            f"{duration(total)} full response · {'within' if within else 'over'} the "
+            f"{SPEC_S7_SECONDS:.0f} s target (S7)",
+            icon=":material/timer:",
+            color="green" if within else "orange",
+        )
+        st.caption(breakdown, width="content")
+
+
 # --------------------------------------------------------------------------- shared pieces
 
 
 def init_state() -> None:
-    st.session_state.setdefault("claim", EXAMPLE_CLAIMS[0])
-    st.session_state.setdefault("result", None)
-    st.session_state.setdefault("auto_check", False)
+    """Session defaults. A link can open a view and check a claim at once (for the demo):
+    ?view=compare, ?claim=Vitamin+D+cures+COVID-19 (checked on arrival), ?llm=1."""
     if "view" not in st.session_state:
         linked = st.query_params.get("view")
         st.session_state["view"] = linked if linked in VIEWS else "check"
+        claim = st.query_params.get("claim", "").strip()
+        if claim:
+            st.session_state["claim"] = claim[:5000]
+            st.session_state["auto_check"] = True
+        st.session_state["use_llm"] = st.query_params.get("llm") == "1"
+    st.session_state.setdefault("claim", EXAMPLE_CLAIMS[0])
+    st.session_state.setdefault("result", None)
+    st.session_state.setdefault("auto_check", False)
+    st.session_state.setdefault("use_llm", False)
 
 
 def use_example(text: str) -> None:
@@ -306,24 +449,12 @@ def claim_box(key: str, label: str = "Claim or post") -> str:
     return claim
 
 
-def waiting_panel(
-    title: str,
-    icon: str,
-    body: str,
-    owner: str,
-    command: str | None = None,
-    preview: Callable[[], None] | None = None,
-) -> None:
-    """A panel that is designed but not built yet: what will appear and who fills it.
-
-    ``preview`` draws the panel's real structure (empty table, the plain claim) under the text.
-    """
+def waiting_panel(title: str, icon: str, body: str, note: str, command: str | None = None) -> None:
+    """A panel whose content is not available here yet: what will appear and what fills it."""
     with st.container(border=True, height="stretch"):
         st.markdown(f"#### {icon} {title}")
         st.markdown(body)
-        if preview:
-            preview()
-        st.caption(owner)
+        st.caption(note)
         if command:
             st.code(command, language="bash", wrap_lines=True)
 
@@ -337,6 +468,148 @@ def no_models_panel() -> None:
         "Models are found automatically: outputs/<run>/seed<N>/model",
         "python -m factcheck.train --config configs/encoder/distilbert_covid.yaml",
     )
+
+
+def escape_markdown(text: str) -> str:
+    return re.sub(r"([\\`*_{}\[\]()#+\-.!|>~$:<])", r"\\\1", text)
+
+
+def shorten(text: str, limit: int = 220) -> str:
+    text = " ".join(str(text).replace('""', '"').split())  # PUBHEALTH quotes are CSV-doubled
+    return text if len(text) <= limit else text[: limit - 1].rsplit(" ", 1)[0] + "…"
+
+
+# --------------------------------------------------------------------------- evidence and why
+
+
+def evidence_panel(result: dict, clf: serve.Classifier) -> None:
+    found = result["found"]
+    with st.container(border=True, height="stretch"):
+        st.markdown("#### :material/library_books: Evidence")
+        if found is None:
+            st.markdown(
+                "Similar fact-checked claims and evidence sentences appear here once the "
+                "retrieval index is built (a few minutes, once per machine)."
+            )
+            st.code("python -m factcheck.retrieval build", language="bash")
+            return
+        dataset = DATASETS.get(clf.info.name, clf.info.name)
+        if found.similar:
+            st.markdown(f"**Already fact-checked, most similar first** · {dataset} training set")
+            for hit in found.similar:
+                st.markdown(
+                    f":{rating_color(hit.label_name)}-badge[{rung_name(hit.label_name)}] "
+                    f"{escape_markdown(shorten(hit.text))} :gray[· similarity {hit.score:.2f}]"
+                )
+        st.space("small")
+        st.markdown("**Closest evidence sentences** · PUBHEALTH fact-check articles, Climate-FEVER")
+        for sentence in found.sentences:
+            st.markdown(
+                f"{escape_markdown(shorten(sentence.text, 300))}  \n"
+                f":gray[{serve.POOL_NAMES[sentence.source]} · similarity {sentence.score:.2f}]"
+            )
+        note = (
+            "This model reads the claim together with these evidence sentences."
+            if clf.uses_evidence
+            else "Retrieved by meaning (bge-small embeddings); the verdict above reads the claim alone."
+        )
+        st.caption(f"{note} Retrieval took {duration(found.seconds)}.")
+
+
+def highlighted(why: serve.Explanation) -> str:
+    """The claim as markdown, each word tinted by its push: red towards false, green towards
+    true; bold for the strongest. Words with little effect stay plain."""
+    words = why.words()
+    strongest = max((abs(v) for _, v in words), default=0.0) or 1e-9
+    out = []
+    for word, value in words:
+        core = word.strip()
+        trail = word[len(word.rstrip()) :]
+        share = abs(value) / strongest
+        text = escape_markdown(core)
+        if abs(value) >= 0.02 and share >= 0.2:
+            text = f":{'red' if value > 0 else 'green'}-background[{text}]"
+            if share >= 0.6:
+                text = f"**{text}**"
+        out.append(f"{text}{trail}")
+    return "".join(out)
+
+
+def word_chart(why: serve.Explanation, top: int = 8) -> alt.Chart:
+    pairs = why.words()
+    words = pd.DataFrame({"word": [w.strip() for w, _ in pairs], "push": [v for _, v in pairs]})
+    words = words[words["word"].str.contains(r"\w")]  # punctuation alone is not a reason
+    words = words.reindex(words["push"].abs().sort_values(ascending=False).index).head(top)
+    words["towards"] = ["false" if v > 0 else "true" for v in words["push"]]
+    words["word_id"] = [f"{w} ({i})" for i, w in enumerate(words["word"])]
+    return (
+        alt.Chart(words)
+        .mark_bar(cornerRadius=4, height=16)
+        .encode(
+            x=alt.X("push:Q", title="Push towards false (+) or true (−), log-odds"),
+            y=alt.Y(
+                "word_id:N",
+                sort="-x",
+                title=None,
+                axis=alt.Axis(labelExpr="replace(datum.label, / \\(\\d+\\)$/, '')"),
+            ),
+            color=alt.Color(
+                "towards:N",
+                scale=alt.Scale(domain=["false", "true"], range=["#c8102e", "#2e7d3c"]),
+                legend=None,
+            ),
+            tooltip=[
+                alt.Tooltip("word:N", title="Word"),
+                alt.Tooltip("push:Q", title="Change in log-odds of false", format="+.2f"),
+            ],
+        )
+        .properties(height=34 * len(words))
+    )
+
+
+def why_panel(result: dict, clf: serve.Classifier) -> None:
+    with st.container(border=True, height="stretch"):
+        st.markdown("#### :material/psychology: Why this verdict")
+        if result["why"] is None:
+            evidence = (
+                result["found"].sentence_texts() if result["found"] and clf.uses_evidence else None
+            )
+            with st.spinner("Finding the words that drove the verdict (SHAP)…"):
+                result["why"] = serve.explain(clf, result["claim"], evidence)
+        why = result["why"]
+        st.markdown(highlighted(why))
+        st.caption(
+            "Red words push the model towards false, green towards true; bold marks the "
+            "strongest. Values are changes in the log-odds that the claim is false."
+        )
+        st.altair_chart(
+            word_chart(why), width="stretch", alt="The words that moved the verdict most."
+        )
+        st.caption(
+            f"SHAP partition explainer, {why.evals} model calls, {duration(why.seconds)}. "
+            "Not counted in the response time."
+        )
+
+
+def llm_panel(result: dict, encoder_pred: serve.Prediction) -> None:
+    llm, llm_dir = result["llm"], result["llm_dir"]
+    with st.container(border=True):
+        left, right = st.columns([3, 2], vertical_alignment="center")
+        with left:
+            st.markdown(f"**Second opinion** · {plate(llm_dir)}")
+            show_ladder(prediction_rungs(llm_dir, llm), height=72, names="lit")
+        with right:
+            word, color, icon = verdict(llm.fake_prob)
+            st.markdown(f"#### :{color}[{icon} {word}]")
+            st.markdown(f"{llm.fake_prob:.0%} probability false · {duration(llm.seconds)}")
+            same = verdict(encoder_pred.fake_prob)[0] == word
+            if same:
+                st.markdown(":material/handshake: Agrees with the encoder.")
+            else:
+                st.markdown(
+                    ":orange[:material/call_split: Disagrees with the encoder]: "
+                    "a claim worth a human check."
+                )
 
 
 # --------------------------------------------------------------------------- views
@@ -364,30 +637,59 @@ def check_view(models: dict[str, Path]) -> None:
             disabled=not models,
         )
 
+    use_llm = st.session_state["use_llm"]
     auto = st.session_state.pop("auto_check", False)
     if model_dir and claim.strip() and (pressed or auto):
-        st.session_state["result"] = {"claim": claim, "model": model_dir, **check(model_dir, claim)}
+        st.session_state["result"] = check(model_dir, claim, use_llm)
     result = st.session_state["result"]
-    if result and (result["claim"] != claim or result["model"] != model_dir):
-        result = None  # the claim or model changed since the last check
+    if result and (
+        result["claim"] != claim or result["model"] != model_dir or result["use_llm"] != use_llm
+    ):
+        result = None  # the claim, the model or the LLM switch changed since the last check
 
     st.space("small")
-    if model_dir:
-        rungs = ladder_rungs(
-            load_classifier(model_dir)[2].labels,
-            result and result["label_probs"],
-            result and result["fake_prob"],
-        )
+    if result:
+        rungs = prediction_rungs(model_dir, result["pred"])
+    elif model_dir:
+        rungs = ladder_rungs(classifier(model_dir).info.labels)
     else:
         rungs = ladder_rungs(("fake", "mixture", "real"))
         rungs["name"] = ["Likely false", "Mixed", "Likely true"]
     show_ladder(rungs)
-    if result:
-        verdict_line(result, rungs)
-    elif models:
-        st.markdown("Pick an example claim in the sidebar, or paste one and press **Check**.")
-    else:
-        no_models_panel()
+    if not result:
+        if models:
+            st.markdown("Pick an example claim in the sidebar, or paste one and press **Check**.")
+        else:
+            no_models_panel()
+        return
+
+    verdict_line(result["pred"], rungs)
+    response_line(result)
+    if result["llm"] is not None:
+        llm_panel(result, result["pred"])
+    st.space("small")
+    clf = classifier(model_dir)
+    evidence_col, why_col = st.columns(2)
+    with evidence_col:
+        evidence_panel(result, clf)
+    with why_col:
+        why_panel(result, clf)
+
+
+def compare_defaults(models: dict[str, Path]) -> list[str]:
+    """The best model next to the fast DistilBERT baseline of the same dataset, if there is one."""
+    names = list(models)
+    if not names:
+        return []
+    best = names[0]
+    dataset = run_config(best)["data"]["dataset"]
+    fast = [
+        m
+        for m in names[1:]
+        if run_config(m)["data"]["dataset"] == dataset
+        and "distilbert" in run_config(m)["model"]["name"]
+    ]
+    return [best, *(fast or names[1:2])]
 
 
 def compare_view(models: dict[str, Path]) -> None:
@@ -397,35 +699,33 @@ def compare_view(models: dict[str, Path]) -> None:
         no_models_panel()
         return
     chosen = st.multiselect(
-        "Encoders to compare",
+        "Models to compare",
         list(models),
-        default=list(models)[:2],
+        default=compare_defaults(models),
         format_func=plate,
         max_selections=3,
         key="compare_models",
     )
     if not (claim.strip() and chosen):
-        st.markdown("Choose up to three encoders to see them side by side.")
+        st.markdown("Choose up to three models to see them side by side.")
         return
 
-    results = {m: check(m, claim) for m in chosen}
+    results = {m: score(m, claim) for m in chosen}
     columns = st.columns(len(chosen))
-    for column, (model_dir, result) in zip(columns, results.items(), strict=False):
+    for column, (model_dir, pred) in zip(columns, results.items(), strict=False):
         with column, st.container(border=True, height="stretch"):
-            st.markdown(f"**{run_config(model_dir)['run']['name']}**")
+            st.markdown(f"**{model_label(model_dir)}**")
             st.caption(plate(model_dir))
-            rungs = ladder_rungs(
-                load_classifier(model_dir)[2].labels, result["label_probs"], result["fake_prob"]
-            )
+            rungs = prediction_rungs(model_dir, pred)
             show_ladder(rungs, height=80, names="lit")
-            word, color, icon = verdict(result["fake_prob"])
+            word, color, icon = verdict(pred.fake_prob)
             st.markdown(f"#### :{color}[{icon} {word}]")
             lit = rungs[rungs["lit"]].iloc[0]
             st.markdown(
-                f"{lit['name']} {lit['pct']} · {result['fake_prob']:.0%} false · "
-                f"{duration(result['elapsed'])}"
+                f"{lit['name']} {lit['pct']} · {pred.fake_prob:.0%} false · "
+                f"{duration(pred.seconds)}"
             )
-    verdicts = {verdict(r["fake_prob"])[0] for r in results.values()}
+    verdicts = {verdict(p.fake_prob)[0] for p in results.values()}
     if len(results) > 1 and len(verdicts) > 1:
         st.warning(
             "Compare their ladders: the same words lead them to different ratings.",
@@ -433,7 +733,7 @@ def compare_view(models: dict[str, Path]) -> None:
             icon=":material/call_split:",
         )
     elif len(results) > 1:
-        st.markdown(f"All {len(results)} encoders agree: **{verdicts.pop()}**.")
+        st.markdown(f"All {len(results)} models agree: **{verdicts.pop()}**.")
 
 
 @st.cache_data(show_spinner=False)
@@ -450,10 +750,6 @@ def fake_articles(limit: int = 50) -> list[str]:
     fake = test[(test["label_name"] == "fake") & test["text"].str.len().between(400, 900)]
     fake = fake.sort_values("subject", key=lambda s: s != "Government News", kind="stable")
     return fake["text"].head(limit).astype(str).tolist()
-
-
-def escape_markdown(text: str) -> str:
-    return re.sub(r"([\\`*_{}\[\]()#+\-.!|>~$:<])", r"\\\1", text)
 
 
 def next_article(count: int) -> None:
@@ -515,15 +811,14 @@ def shortcut_view(models: dict[str, Path]) -> None:
             + escape_markdown(article)
         )
 
-    isot = {
-        run_config(m)["data"].get("variant", "raw"): m
-        for m in models
-        if run_config(m)["data"]["dataset"] == "isot"
-    }
+    isot = {}
+    for m in models:  # the best logged model per variant (models are sorted best first)
+        cfg = run_config(m)
+        if cfg["data"]["dataset"] == "isot" and not serve.is_qlora(m):
+            isot.setdefault(cfg["data"].get("variant", "raw"), m)
     commands = {
-        "raw": "python -m factcheck.train --config configs/encoder/modernbert_isot_clean.yaml "
-        "--set data.variant=raw --set run.name=modernbert_isot_raw",
-        "clean": "python -m factcheck.train --config configs/encoder/modernbert_isot_clean.yaml",
+        "raw": "python -m factcheck.train --config configs/encoder/roberta_isot_raw.yaml",
+        "clean": "python -m factcheck.train --config configs/encoder/roberta_isot_clean.yaml",
     }
     titles = {"raw": "Trained on raw text", "clean": "Trained on cleaned text"}
     for column, variant in zip(st.columns(2), ("raw", "clean"), strict=True):
@@ -535,19 +830,16 @@ def shortcut_view(models: dict[str, Path]) -> None:
                     ":material/model_training:",
                     "Needs an ISOT encoder trained on the "
                     f"{'raw' if variant == 'raw' else 'cleaned'} text.",
-                    "Shortcut study, experiment E7 (M4).",
+                    "Shortcut study, experiment E7.",
                     commands[variant],
                 )
                 continue
-            result = check(model_dir, text)
+            pred = score(model_dir, text)
             with st.container(border=True, height="stretch"):
                 st.markdown(f"#### {titles[variant]}")
                 st.caption(plate(model_dir))
-                rungs = ladder_rungs(
-                    load_classifier(model_dir)[2].labels, result["label_probs"], result["fake_prob"]
-                )
-                show_ladder(rungs, height=80)
-                word, color, icon = verdict(result["fake_prob"])
+                show_ladder(prediction_rungs(model_dir, pred), height=80)
+                word, color, icon = verdict(pred.fake_prob)
                 st.markdown(f"#### :{color}[{icon} {word}]")
     st.markdown(
         "What to look for: the raw-trained model should flip to *real* when the dateline is added; "
@@ -601,19 +893,8 @@ def specs_scorecard(specs: pd.DataFrame) -> None:
 
 
 def results_view() -> None:
-    try:
-        runs = load_runs()
-        specs = check_specs(runs)
-    except NotImplementedError:
-        waiting_panel(
-            "Results log and specs check not built yet",
-            ":material/table_chart:",
-            "Every training run will append its scores to `results/runs.csv`, and the "
-            "specifications S1 to S10 are checked from that file.",
-            "factcheck/results.py and factcheck/evaluate.py (T04).",
-        )
-        return
-    specs_scorecard(specs)
+    runs = load_runs()
+    specs_scorecard(check_specs(runs))
 
     st.space("medium")
     st.subheader("Runs on the test split", anchor=False)
@@ -624,7 +905,7 @@ def results_view() -> None:
             ":material/table_chart:",
             "Every training run appends its scores to `results/runs.csv`; they appear here "
             "and in the specifications above, with no numbers typed by hand.",
-            "Logged by factcheck.train (all members).",
+            "Logged by factcheck.train.",
             "python -m factcheck.train --config configs/encoder/distilbert_covid.yaml",
         )
         return
@@ -637,20 +918,40 @@ def results_view() -> None:
         st.caption("Only debug runs so far.")
         return
 
-    best = test.assign(model=test["model_name"].str.split("/").str[-1])
-    best = best.groupby(["dataset", "model"], as_index=False)["macro_f1"].max()
+    # One bar per model and dataset: the run with the best MEAN over its seeds, never the
+    # luckiest single seed.
+    per_run = (
+        test.assign(model=test["model_name"].str.split("/").str[-1])
+        .groupby(["dataset", "model", "run_name"], as_index=False)
+        .agg(macro_f1=("macro_f1", "mean"), sd=("macro_f1", "std"), seeds=("seed", "nunique"))
+    )
+    best = per_run.loc[per_run.groupby(["dataset", "model"])["macro_f1"].idxmax()]
+    best["sd"] = best["sd"].fillna(0.0)
     chart = (
         alt.Chart(best)
         .mark_bar(cornerRadiusEnd=4)
         .encode(
-            x=alt.X("macro_f1:Q", title="Best test macro-F1", scale=alt.Scale(domain=[0, 1])),
+            x=alt.X(
+                "macro_f1:Q",
+                title="Test macro-F1, mean over seeds (best run per model)",
+                scale=alt.Scale(domain=[0, 1]),
+            ),
             y=alt.Y("model:N", title=None, sort="-x", axis=alt.Axis(labelLimit=320)),
             color=alt.Color("dataset:N", title="Dataset"),
             yOffset="dataset:N",
-            tooltip=["dataset", "model", alt.Tooltip("macro_f1:Q", format=".3f")],
+            tooltip=[
+                "dataset",
+                "model",
+                alt.Tooltip("run_name:N", title="Run"),
+                alt.Tooltip("macro_f1:Q", title="Mean macro-F1", format=".3f"),
+                alt.Tooltip("sd:Q", title="Std over seeds", format=".3f"),
+                alt.Tooltip("seeds:Q", title="Seeds"),
+            ],
         )
     )
-    st.altair_chart(chart, width="stretch", alt="Best test macro-F1 for each model and dataset.")
+    st.altair_chart(
+        chart, width="stretch", alt="Mean test macro-F1 of the best run per model and dataset."
+    )
     st.dataframe(
         test[[c for c in RUN_COLUMNS if c in test]].dropna(axis="columns", how="all"),
         column_config=RUN_COLUMNS,
@@ -662,6 +963,20 @@ def results_view() -> None:
 # --------------------------------------------------------------------------- page
 
 
+def gpu_memory_caption() -> None:
+    """Live GPU memory against spec S8 (everything in the app fits in 8 GB)."""
+    if not torch.cuda.is_available():
+        st.caption("CPU only: no GPU memory to report.")
+        return
+    used = torch.cuda.memory_reserved() / 2**30
+    total = torch.cuda.get_device_properties(0).total_memory / 2**30
+    within = used <= SPEC_S8_GB
+    st.caption(
+        f"GPU memory held by the app: {used:.1f} of {total:.1f} GB · "
+        f"{'within' if within else 'over'} the {SPEC_S8_GB:.0f} GB target (S8)"
+    )
+
+
 def sidebar(models: dict[str, Path]) -> None:
     with st.sidebar:
         st.subheader("Example claims", anchor=False)
@@ -670,8 +985,20 @@ def sidebar(models: dict[str, Path]) -> None:
                 example, key=f"example_{i}", on_click=use_example, args=(example,), width="stretch"
             )
         st.space("medium")
+        adapters = llm_adapters()
+        st.toggle(
+            "Qwen3-8B second opinion",
+            key="use_llm",
+            disabled=not adapters,
+            help="Adds the QLoRA-tuned Qwen3-8B verdict for the model's dataset. Loads 4-bit "
+            "weights (about 6 GB of GPU memory) the first time.",
+        )
+        if not adapters:
+            st.caption("No QLoRA adapters under outputs/ yet.")
+        st.space("medium")
         device = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU"
         st.caption(f"{len(models)} trained model{'s' if len(models) != 1 else ''} found · {device}")
+        gpu_memory_caption()
         st.caption("Triage support for human fact-checkers, not a judge of truth.")
 
 
@@ -680,12 +1007,12 @@ def main() -> None:
         page_title="Fact-Check Lab", page_icon=":material/fact_check:", layout="wide"
     )
     init_state()
-    models = find_models()
-    sidebar(models)
+    models = find_models(include_llm=st.session_state["use_llm"])
 
     st.title("Fact-Check Lab", anchor=False)
     st.caption(
-        "Paste a claim, get an explained verdict from encoders trained on four misinformation datasets."
+        "Paste a claim, get an explained verdict from models trained on four misinformation "
+        "datasets."
     )
     has_isot = any(run_config(m)["data"]["dataset"] == "isot" for m in models)
     views = [v for v in VIEWS if v != "shortcut" or has_isot]
@@ -709,6 +1036,7 @@ def main() -> None:
         results_view()
     else:
         check_view(models)
+    sidebar(models)  # last, so the GPU memory caption counts every model this run loaded
 
 
 main()

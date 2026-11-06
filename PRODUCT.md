@@ -22,19 +22,19 @@ Triage support for human fact-checkers, not a judge of truth. It shows why a mod
 
 ## Operating Context
 
-Runs locally on a laptop RTX 5060 (8 GB). Models are found under `outputs/<run>/seed<N>/model`; results are read live from `results/runs.csv`; specs S1 to S10 come from `configs/specs.yaml` via `factcheck.evaluate.check_specs`. Team of five; panels are owned by members (M3 evidence, M4 SHAP and shortcut study, M5 app).
+Runs locally on a laptop RTX 5060 (8 GB). Models are found under `outputs/<run>/seed<N>/model`; results are read live from `results/runs.csv`; specs S1 to S10 come from `configs/specs.yaml` via `factcheck.evaluate.check_specs`. Team of five; the app (T11, T22, T35) is built by M1 (taken over from M5, 6 Nov), on M3's retrieval index and M4's SHAP masker; the inference engine is `factcheck/serve.py`.
 
 ## Capabilities and Constraints
 
 - Views from the plan (Section 15): Check a claim (verdict badge Likely true / Mixed / Likely false, confidence, response time against spec S7 <= 5 s), Evidence panel, Why panel (SHAP: red pushes towards false, green towards true), Compare models (fast encoder vs best encoder vs RAG LLM), Shortcut demo, Results explorer (charts + specs pass/fail), example claims pre-loaded in a sidebar.
-- Working today: verdict, confidence and response time from any trained encoder; the results explorer. Evidence, Why, Compare and Shortcut demo are not built yet.
+- Working (6 Nov): every view. Check: ladder verdict, S6 encoder time, evidence (similar fact-checked training claims with their verdicts, closest PUBHEALTH and Climate-FEVER evidence sentences), Why (SHAP in log-odds of false, words tinted red/green, top-words bar chart), optional Qwen3-8B QLoRA second opinion with the S7 full-response timer, live GPU memory against S8 in the sidebar. Compare, Shortcut demo (raw vs cleaned ISOT RoBERTa), Results (specs board, mean-over-seeds chart, all runs). Links: `?claim=...`, `?view=...`, `?llm=1`.
 - Confirmed: unfinished panels get designed empty states that say what will appear and who or what fills it; no fabricated numbers.
 - Confirmed: styling uses the native Streamlit theme (`.streamlit/config.toml`) and native components only, no custom CSS.
 - Streamlit 1.66, Python 3.11, installed with pip.
 
 ## Evidence on Hand
 
-No trained full models and no logged runs exist yet (only smoke checkpoints). Example claims are in `app/app.py`. Do not invent accuracies, latencies or verdicts.
+166 logged runs in `results/runs.csv`; 12 trained models plus 4 QLoRA adapters on the laptop under `outputs/` (copied from the MLDA servers, not in git). Example claims are in `app/app.py`. Do not invent accuracies, latencies or verdicts: every number on screen is read from runs.csv or measured live.
 
 ## Product Principles
 
