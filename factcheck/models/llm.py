@@ -186,6 +186,15 @@ def scored_splits(cfg: dict, splits: dict[str, pd.DataFrame]) -> dict[str, pd.Da
     return {split: splits[split] for split in ("validation", "test") if len(splits[split])}
 
 
+def logged_splits(cfg: dict, scored: dict) -> dict:
+    """``scored`` keyed by the split name it goes into runs.csv under. A ``data.llm_subset`` run
+    scored only the 2,000-article subset, so its test scores are logged as ``test_llm_subset``
+    alone: a ``test`` row would pass a subset score off as a full test-set one."""
+    if not cfg["data"]["llm_subset"]:
+        return scored
+    return {"test_llm_subset" if split == "test" else split: v for split, v in scored.items()}
+
+
 def prompt_contexts(cfg: dict, df: pd.DataFrame, split: str) -> list[Context] | None:
     """Each row's kNN examples or evidence sentences for the run's method; None for zero-shot.
 
@@ -298,7 +307,7 @@ def score_llm(cfg: dict) -> dict:
     log_run(
         cfg,
         info,
-        {split: (splits[split], probs[split]) for split in probs},
+        logged_splits(cfg, {split: (splits[split], probs[split]) for split in probs}),
         extra={
             "trainable_params": 0,
             "peak_gpu_mem_mb": peak_mb,

@@ -14,6 +14,7 @@ from factcheck.data import get_dataset
 from factcheck.models.llm import (
     PROMPTS,
     LLMScorer,
+    logged_splits,
     score_llm,
     scored_splits,
     with_defaults,
@@ -155,6 +156,14 @@ def test_llm_subset_keeps_only_the_fixed_test_subset():
     assert scored["test"]["id"].tolist() == ["0", "1"]
     with pytest.raises(ValueError, match="no LLM test subset"):
         scored_splits(cfg, {"validation": splits_frame(4), "test": splits_frame(6)})
+
+
+def test_llm_subset_runs_log_no_full_test_row():
+    subset = with_defaults({"data": {"dataset": "isot", "llm_subset": True}})
+    full = with_defaults({"data": {"dataset": "liar"}})
+    scored = {"validation": 1, "test": 2}
+    assert logged_splits(subset, {"test": 2}) == {"test_llm_subset": 2}
+    assert logged_splits(full, scored) == scored
 
 
 def llm_cfg(dataset: str, method: str, **features) -> dict:
