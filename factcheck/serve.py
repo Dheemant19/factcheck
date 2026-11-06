@@ -87,7 +87,10 @@ class Prediction:
 class Classifier:
     """A saved run loaded once, scoring one claim at a time (on the GPU when there is one)."""
 
-    def __init__(self, model_dir: str | Path, device: str | None = None):
+    def __init__(self, model_dir: str | Path, device: str | None = None, half: bool | None = None):
+        """``half`` (default: on a GPU) runs an encoder in fp16. Verdicts move by about 1e-5, and
+        it halves the memory, so an encoder and the 4-bit Qwen3-8B fit in 8 GB without spilling into
+        shared memory (with fp32 weights the encoder slowed from 10 ms to 120 ms next to Qwen)."""
         # Load weights on the main thread (transformers 5's threaded loading crashed on Windows)
         os.environ.setdefault("HF_DEACTIVATE_ASYNC_LOAD", "1")
         self.model_dir = Path(model_dir)
@@ -108,8 +111,9 @@ class Classifier:
             from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
             self.tokenizer = AutoTokenizer.from_pretrained(self.model_dir)
+            half = (device == "cuda") if half is None else half
             self.model = AutoModelForSequenceClassification.from_pretrained(
-                self.model_dir, dtype=torch.float32
+                self.model_dir, dtype=torch.float16 if half else torch.float32
             )
             self.model.to(device)
         self.model.eval()

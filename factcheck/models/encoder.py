@@ -250,11 +250,16 @@ def load_model(name: str, info: DatasetInfo, dropout: float | None = None):  # n
     )
 
 
-def load_4bit_model(name: str, info: DatasetInfo, pad_token_id: int):  # noqa: ANN201
+def load_4bit_model(  # noqa: ANN201
+    name: str, info: DatasetInfo, pad_token_id: int, for_training: bool = True
+):
     """A causal LM with a fresh classification head, weights in 4-bit NF4 (T27, QLoRA).
 
     Computation runs in bf16. The head scores the last real token, so the model has to know
-    the pad token.
+    the pad token. ``for_training`` prepares it for k-bit training (gradient checkpointing,
+    and every layer that is not 4-bit cast to fp32); inference skips that, which keeps the
+    1.2 GB embedding table in bf16 instead of 2.5 GB of fp32 (the app runs it next to an
+    encoder on an 8 GB laptop GPU).
     """
     from peft import prepare_model_for_kbit_training
     from transformers import BitsAndBytesConfig
@@ -275,6 +280,8 @@ def load_4bit_model(name: str, info: DatasetInfo, pad_token_id: int):  # noqa: A
         dtype=torch.bfloat16,
         device_map={"": 0},
     )
+    if not for_training:
+        return model
     return prepare_model_for_kbit_training(
         model,
         use_gradient_checkpointing=True,
@@ -294,7 +301,7 @@ def load_qlora(model_dir: str | Path):  # noqa: ANN201
         info = get_dataset(yaml.safe_load(f)["data"]["dataset"])
     tokenizer = AutoTokenizer.from_pretrained(model_dir)
     base_name = PeftConfig.from_pretrained(model_dir).base_model_name_or_path
-    base = load_4bit_model(base_name, info, tokenizer.pad_token_id)
+    base = load_4bit_model(base_name, info, tokenizer.pad_token_id, for_training=False)
     return PeftModel.from_pretrained(base, model_dir).eval(), tokenizer
 
 
