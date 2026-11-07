@@ -3,8 +3,9 @@
     python -m factcheck.train --config configs/lstm/lstm_liar.yaml
     python -m factcheck.train --config configs/lstm/lstm_liar.yaml --seeds 13 42 2026
 
-The config's ``model.family`` picks the trainer: ``lstm`` (T05), ``encoder`` (T06), ``llm``
-(T07, prompted scoring, no training yet) or ``knn`` (T08, kNN vote over the retrieval index).
+The config's ``model.family`` picks the trainer: ``classic`` (T54, TF-IDF and averaged-GloVe
+baselines), ``lstm`` (T05), ``encoder`` (T06), ``llm`` (T07, prompted scoring, no training yet)
+or ``knn`` (T08, kNN vote over the retrieval index).
 Every run logs its scores to results/runs.csv.
 """
 
@@ -24,6 +25,10 @@ def load_config(path: str) -> dict:
 def run(cfg: dict) -> dict:
     """Train one run (one seed) and return its summary."""
     family = cfg["model"]["family"]
+    if family == "classic":
+        from factcheck.models.classic import train_classic
+
+        return train_classic(cfg)
     if family == "lstm":
         from factcheck.models.lstm import train_lstm
 
@@ -40,7 +45,7 @@ def run(cfg: dict) -> dict:
         from factcheck.retrieval import score_knn
 
         return score_knn(cfg)
-    raise ValueError(f"model.family must be lstm, encoder, llm or knn, not {family!r}")
+    raise ValueError(f"model.family must be classic, lstm, encoder, llm or knn, not {family!r}")
 
 
 def main(argv: list[str] | None = None) -> None:

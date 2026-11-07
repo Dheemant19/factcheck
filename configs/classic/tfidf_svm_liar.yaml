@@ -1,0 +1,13 @@
+# T54 traditional baseline (plan Section 8.0) on liar: TF-IDF word 1-2 grams + character 2-5 grams -> linear SVM (sigmoid-calibrated).
+# Regularisation picked on validation macro-F1 from the grid in factcheck/models/classic.py;
+# deterministic, so one run (seed 42) is enough.
+run:
+  name: tfidf_svm_liar
+  seed: 42
+data:
+  dataset: liar
+  variant: raw
+model:
+  family: classic
+  name: tfidf
+  method: tfidf_svm

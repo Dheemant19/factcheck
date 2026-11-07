@@ -1,0 +1,15 @@
+# T54 traditional baseline (plan Section 8.0) on isot: mean of the frozen GloVe 300-d word vectors -> linear SVM (sigmoid-calibrated).
+# Regularisation picked on validation macro-F1 from the grid in factcheck/models/classic.py;
+# deterministic, so one run (seed 42) is enough.
+# ISOT articles are long, so only word n-grams (character n-grams would be millions of
+# features). Source shortcuts removed (T13).
+run:
+  name: glove_svm_isot_clean
+  seed: 42
+data:
+  dataset: isot
+  variant: clean
+model:
+  family: classic
+  name: glove-300d
+  method: glove_svm

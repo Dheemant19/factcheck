@@ -5,6 +5,13 @@ Run with `python -m factcheck.train --config configs/<file>.yaml`.
 
 `template.yaml` lists the fields every run needs; copy it to start a new run.
 
+`classic/` holds the traditional baselines (T54, added after the Week 12 consultation):
+`tfidf_nb`, `tfidf_lr` and `tfidf_svm` (TF-IDF word 1-2 grams plus character 2-5 grams, word
+n-grams only on ISOT) and `glove_svm` (the mean GloVe 300-d vector of the words), one per
+dataset, plus `tfidf_lr_isot_raw` for the raw vs clean comparison. The regularisation is picked
+on validation from the grid in `factcheck/models/classic.py`; fitting is deterministic, so they
+run once (seed 42), on a CPU, in seconds to minutes. Each run also writes `top_words.csv`.
+
 `lstm/` holds the Bi-LSTM baselines (T05), one per dataset. Settings a config leaves out
 take the plan Section 10 defaults in `factcheck/models/lstm.py`.
 

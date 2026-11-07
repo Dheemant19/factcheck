@@ -12,7 +12,8 @@ Writes, with no number typed by hand:
 
 Within a family (for example "large / domain encoder") the run shown is the one with the best
 mean VALIDATION macro-F1, so the test set never picks a model. Scores are on the full test set
-(ISOT: the cleaned text); runs with fewer than 3 seeds are marked.
+(ISOT: the cleaned text); runs with fewer than 3 seeds are marked, and runs that score the
+same for every seed (TF-IDF, GloVe, kNN vote, Qwen3-8B prompting) are marked deterministic.
 """
 
 from __future__ import annotations
@@ -34,6 +35,10 @@ BASE = ("distilbert", "bert", "roberta", "deberta_v3_base", "modernbert")
 LARGE = ("roberta_large", "deberta_v3_large", "covid_twitter_bert", "scibert")
 # family -> run names for one dataset (ISOT encoders use the cleaned variant)
 FAMILIES = {
+    "TF-IDF + NB / LR / SVM": lambda d: [
+        f"tfidf_{m}_{d}{'_clean' if d == 'isot' else ''}" for m in ("nb", "lr", "svm")
+    ],
+    "Averaged GloVe + SVM": lambda d: [f"glove_svm_{d}{'_clean' if d == 'isot' else ''}"],
     "Bi-LSTM (GloVe)": lambda d: [f"lstm_{d}"],
     "kNN vote (bge-small)": lambda d: [f"knn_bge_small_{d}"],
     "Qwen3-8B zero-shot": lambda d: [f"qwen3_8b_zeroshot_{d}"],
@@ -55,6 +60,9 @@ FAMILIES = {
     ],
     "Qwen3-8B QLoRA": lambda d: [f"qwen3_8b_qlora_{d}"],
 }
+# Runs that give the same scores for every seed: one run is the whole result.
+DETERMINISTIC = ("tfidf_", "glove_svm_", "knn_bge_small_", "qwen3_8b_zeroshot_", "qwen3_8b_knn_",
+                 "qwen3_8b_rag_")  # fmt: skip
 PUBLISHED = {"pubhealth": ("Kotonya & Toni 2020, SciBERT", 0.7052)}  # same metric (macro-F1)
 
 INK, MUTED, GRID, SURFACE = "#13294b", "#52514e", "#e1e0d9", "#fcfcfb"
@@ -92,10 +100,17 @@ def family_table(per_run: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def seed_note(row: pd.Series) -> str:
+    if row["seeds"] >= 3:
+        return ""
+    if str(row["run"]).startswith(DETERMINISTIC):
+        return " (deterministic)"
+    return f" ({int(row['seeds'])} seed)"
+
+
 def cell(row: pd.Series) -> str:
     sd = f" ± {row['sd']:.3f}" if row["seeds"] > 1 else ""
-    flag = "" if row["seeds"] >= 3 else f" ({int(row['seeds'])} seed)"
-    return f"{row['f1']:.3f}{sd}{flag}"
+    return f"{row['f1']:.3f}{sd}{seed_note(row)}"
 
 
 def write_table(table: pd.DataFrame) -> None:
@@ -157,7 +172,7 @@ def plot_macro_f1(table: pd.DataFrame) -> None:
             if pd.isna(row["f1"]):
                 ax.text(0.01, yi, "not run", va="center", fontsize=10, color=MUTED)
                 continue
-            mark = "" if row["seeds"] >= 3 else " (1 seed)"
+            mark = seed_note(row)
             ax.text(
                 row["f1"] + (row["sd"] if row["seeds"] > 1 else 0) + 0.01,
                 yi,
