@@ -378,14 +378,19 @@ def verdict(fake_prob: float) -> tuple[str, str, str]:
     return next((word, color, icon) for bound, word, color, icon in VERDICTS if fake_prob <= bound)
 
 
+def sure_of(fake_prob: float, subject: str = "the claim") -> str:
+    """How sure the model is, said in the verdict's own direction: 'with a >99% probability
+    that the claim is true' for a true verdict, rather than '<1% probability ... false'."""
+    if verdict(fake_prob)[0] == "Likely true":
+        return f"with a **{share(1 - fake_prob)}** probability that {subject} is true"
+    return f"with a **{share(fake_prob)}** probability that {subject} is false"
+
+
 def verdict_sentence(pred: serve.Prediction, rungs: pd.DataFrame | None = None) -> str:
     """'**Likely false**, with a >99% probability that the claim is false.' For a dataset
     with more than two labels the most likely label is named too."""
     word, color, icon = verdict(pred.fake_prob)
-    text = (
-        f":{color}[{icon} **{word}**], with a **{share(pred.fake_prob)}** probability that "
-        "the claim is false"
-    )
+    text = f":{color}[{icon} **{word}**], {sure_of(pred.fake_prob)}"
     if rungs is not None and len(rungs) > 2:
         lit = rungs[rungs["lit"]].iloc[0]
         text += f", most likely rated **{lit['name']}**"
@@ -709,7 +714,7 @@ def verdict_block(result: dict | None, rungs: pd.DataFrame) -> None:
             pred = result["pred"]
             word, color, icon = verdict(pred.fake_prob)
             st.header(f":{color}[{icon} {word}]", anchor=False)
-            text = f"The model gives a **{share(pred.fake_prob)}** probability that this claim is false"
+            text = f"The model gives {sure_of(pred.fake_prob, 'this claim')[5:]}"
             if len(rungs) > 2:
                 lit = rungs[rungs["lit"]].iloc[0]
                 text += f", and rates it most likely **{lit['name']}**"
