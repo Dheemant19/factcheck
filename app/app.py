@@ -2,28 +2,30 @@
 
     streamlit run app/app.py
 
-Check a claim: the verdict on the dataset's rating ladder from any trained model, the words
-behind it twice over (SHAP for a transformer, exact weights for the TF-IDF + logistic
-regression baseline, on the same claim), the evidence (similar already fact-checked claims with
-their verdicts, and the closest evidence sentences from PUBHEALTH's fact-check articles and
-Climate-FEVER), an optional second opinion from Qwen3-8B with its QLoRA adapter, and the
-response time against specs S6 (encoder) and S7 (retrieval + LLM verdict). Compare models up
-the ladder side by side, run the shortcut demo (a Reuters dateline flips the raw-trained ISOT
-models), and read the ladder of results and the specs board from results/runs.csv.
+Check a claim: the verdict on the dataset's rating ladder, the words behind it twice over (SHAP
+for a transformer, exact weights for the TF-IDF + logistic regression baseline, on the same
+claim), the evidence (similar already fact-checked claims with their verdicts, and the closest
+evidence sentences from PUBHEALTH's fact-check articles and Climate-FEVER), and an optional
+second opinion from Qwen3-8B with its QLoRA adapter. Compare models up the ladder side by side,
+run the shortcut demo (a Reuters dateline flips the raw-trained ISOT models), and read the
+ladder of results and the specs board from results/runs.csv.
+
+The screen shows what a person checking a claim needs: the verdict, how sure the model is, the
+words behind it and the evidence. Run details (seeds, scores, timings, specs) live in Results.
 
 Models are found under outputs/<run>/seed<N>/model; the engine is ``factcheck.serve``. The
-theme lives in app/.streamlit/config.toml; the app uses native Streamlit only.
+theme lives in app/.streamlit/config.toml, plus the small stylesheet in ``STYLE``.
 """
 
 from __future__ import annotations
 
+import html
 import re
 from pathlib import Path
 
 import altair as alt
 import pandas as pd
 import streamlit as st
-import torch
 
 from factcheck import serve
 from factcheck.data.prepare import load_splits
@@ -32,16 +34,23 @@ from factcheck.paths import OUTPUT_DIR
 from factcheck.results import load_runs
 from factcheck.retrieval import RETRIEVAL_DIR
 
-EXAMPLE_CLAIMS = {  # short link text -> the claim it loads
-    "Hot water kills the virus": "Drinking hot water every 15 minutes kills the coronavirus.",
-    "CDC on masks": "The CDC recommends that people wear masks in public settings.",
-    "Unemployment has doubled": "Says the unemployment rate has doubled since the president took office.",
-    "Vitamin D cure": "Vitamin D supplements cure COVID-19 in 24 hours.",
+EXAMPLE_CLAIMS = {  # link text -> (the claim it loads, the dataset whose models read it)
+    "Hot water kills the virus": (
+        "Drinking hot water every 15 minutes kills the coronavirus.",
+        "covid",
+    ),
+    "CDC on masks": ("The CDC recommends that people wear masks in public settings.", "covid"),
+    "Unemployment has doubled": (
+        "Says the unemployment rate has doubled since the president took office.",
+        "liar",
+    ),
+    "Vitamin D cure": ("Vitamin D supplements cure COVID-19 in 24 hours.", "covid"),
 }
-SPEC_S6_SECONDS = 0.050  # encoder latency per claim
-SPEC_S7_SECONDS = 5.0  # full response: retrieval + LLM verdict
-SPEC_S8_GB = 8.0  # everything in the app on the laptop GPU
 DATELINE = "WASHINGTON (Reuters) - "
+SOURCES = {  # where an evidence sentence comes from, as a phrase
+    "pubhealth": "a PUBHEALTH fact-check article",
+    "climate_fever": "the Climate-FEVER evidence set",
+}
 
 VIEWS = {
     "check": "Check a claim",
@@ -56,6 +65,12 @@ DATASETS = {
     "pubhealth": "PUBHEALTH",
     "isot": "ISOT",
     "climate_fever": "Climate-FEVER",
+}
+DATASET_CHOICES = {  # what each dataset's models were trained to read
+    "covid": "COVID-19 social media posts (COVID)",
+    "liar": "Political statements (LIAR)",
+    "pubhealth": "Public-health claims (PUBHEALTH)",
+    "isot": "News articles (ISOT)",
 }
 MODEL_NAMES = {
     "digitalepidemiologylab/covid-twitter-bert-v2": "COVID-Twitter-BERT",
@@ -89,7 +104,7 @@ TRUTH_SCORE = {
     "real": 1.0,
     "supports": 1.0,
 }
-# Rung colours from the theme's verdict palette, dark enough for white text (WCAG AA).
+# Rung outlines from the theme's verdict palette.
 RUNG_FILL = {
     "pants-fire": "#8a241d",
     "fake": "#b8332a",
@@ -113,7 +128,6 @@ PAPER = "#faf8f5"
 # A lit rung: the theme's pale verdict tint, its verdict-colour outline and darker ink.
 RUNG_TINT = {"red": "#f8e3e0", "orange": "#f7ead0", "green": "#dcefe6", "gray": "#ebe6dd"}
 RUNG_INK = {"red": "#9e2b23", "orange": "#8a5200", "green": "#0a5f44", "gray": "#18181b"}
-PUSH_FALSE, PUSH_TRUE = "#b8332a", "#0b6e4f"
 
 # (upper bound on P(false), verdict, theme colour, icon)
 MIXED = "Mixed / uncertain"
@@ -123,13 +137,40 @@ VERDICTS = [
     (1.0, "Likely false", "red", ":material/cancel:"),
 ]
 
+# The few things the native theme cannot do: the word-push bars (aligned rows, values in their
+# own column, so nothing overlaps), section headings a step heavier, no heading link icons.
+STYLE = """
+<style>
+[data-testid="stHeaderActionElements"] { display: none; }
+::selection { background: #dde7f3; }
+h3 { font-weight: 700 !important; }
+.pushes { margin: 0.4rem 0 0.2rem; font-size: 1rem; }
+.pushes .row { display: grid; grid-template-columns: minmax(6rem, 11rem) 1fr 3.6rem;
+  align-items: center; column-gap: 0.9rem; padding: 0.22rem 0; }
+.pushes .key { color: #52525b; font-size: 0.85rem; padding-bottom: 0.35rem; }
+.pushes .key .ends { display: flex; justify-content: space-between; }
+.pushes .word { text-align: right; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; }
+.pushes .strong .word { font-weight: 700; }
+.pushes .track { position: relative; height: 0.95rem; }
+.pushes .zero { position: absolute; top: -0.3rem; bottom: -0.3rem; border-left: 1px solid #a8a29e; }
+.pushes .bar { position: absolute; top: 0; height: 100%; border-radius: 2px; }
+.pushes .false { background: #b8332a; }
+.pushes .true { background: #0b6e4f; }
+.pushes .value { font-family: 'IBM Plex Mono', monospace; font-size: 0.88rem;
+  text-align: right; font-variant-numeric: tabular-nums; }
+.source { color: #52525b; font-size: 0.88rem; }
+</style>
+"""
+
 
 # --------------------------------------------------------------------------- models
 
 
 @st.cache_data(ttl=60)
 def logged_test_f1() -> dict[tuple[str, int], float]:
-    """Test macro-F1 of every logged (run, seed), read from results/runs.csv."""
+    """Test macro-F1 of every logged (run, seed), read from results/runs.csv. Used only to
+    pick each run's best seed and the default model, never shown next to a verdict."""
     runs = load_runs()
     test = runs[(runs["split"] == "test") & runs["subset"].isna()]
     return {(r.run_name, int(r.seed)): float(r.macro_f1) for r in test.itertuples()}
@@ -145,35 +186,6 @@ def test_f1(model_dir: str) -> float | None:
     return logged_test_f1().get((run["name"], int(run["seed"])))
 
 
-def find_models(include_llm: bool = False) -> dict[str, Path]:
-    """Every saved model the app can run, by dataset, best logged test macro-F1 first.
-
-    QLoRA adapters (Qwen3-8B, about 6 GB of GPU memory) are listed only when the LLM is on.
-    """
-    found = [
-        p
-        for p in OUTPUT_DIR.glob("*/seed*/model")
-        if serve.is_servable(p) and (include_llm or not serve.is_qlora(p))
-    ]
-    order = list(DATASETS)
-
-    def key(p: Path) -> tuple:
-        cfg = run_config(str(p))
-        dataset = cfg["data"]["dataset"]
-        return (order.index(dataset) if dataset in order else 99, -(test_f1(str(p)) or 0.0))
-
-    return {str(p): p for p in sorted(found, key=key)}
-
-
-def llm_adapters() -> dict[str, str]:
-    """Dataset -> the QLoRA adapter folder for it (the first seed found)."""
-    adapters = {}
-    for p in sorted(OUTPUT_DIR.glob("qwen3_8b_qlora_*/seed*/model")):
-        if serve.is_servable(p):
-            adapters.setdefault(run_config(str(p))["data"]["dataset"], str(p))
-    return adapters
-
-
 def dataset_of(model_dir: str) -> str:
     return run_config(model_dir)["data"]["dataset"]
 
@@ -186,26 +198,60 @@ def is_baseline(model_dir: str) -> bool:
     return run_config(model_dir)["model"].get("family") == "classic"
 
 
+def ladder_rank(model_dir: str) -> int:
+    """Where a servable model sits on the ladder: baseline, encoder, then the LLM."""
+    return 0 if is_baseline(model_dir) else 2 if serve.is_qlora(model_dir) else 1
+
+
+def find_models(include_llm: bool = False) -> dict[str, Path]:
+    """Every model the app can run, one per run (its best logged seed), by dataset, up the
+    ladder (TF-IDF, then encoders best first, then Qwen3-8B).
+
+    QLoRA adapters (Qwen3-8B, about 6 GB of GPU memory) are listed only when the LLM is on.
+    """
+    found = [
+        p
+        for p in OUTPUT_DIR.glob("*/seed*/model")
+        if serve.is_servable(p) and (include_llm or not serve.is_qlora(p))
+    ]
+    order = list(DATASETS)
+
+    def key(p: Path) -> tuple:
+        dataset = dataset_of(str(p))
+        rank = order.index(dataset) if dataset in order else 99
+        return (rank, ladder_rank(str(p)), -(test_f1(str(p)) or 0.0))
+
+    best: dict[str, Path] = {}
+    for p in sorted(found, key=key):
+        best.setdefault(run_config(str(p))["run"]["name"], p)  # the best seed of each run
+    return {str(p): p for p in best.values()}
+
+
+def llm_adapters() -> dict[str, str]:
+    """Dataset -> the QLoRA adapter folder for it (the first seed found)."""
+    adapters = {}
+    for p in sorted(OUTPUT_DIR.glob("qwen3_8b_qlora_*/seed*/model")):
+        if serve.is_servable(p):
+            adapters.setdefault(run_config(str(p))["data"]["dataset"], str(p))
+    return adapters
+
+
 def model_label(model_dir: str) -> str:
     name = run_config(model_dir)["model"]["name"]
     return MODEL_NAMES.get(name, name.split("/")[-1])
 
 
-def plate(model_dir: str) -> str:
-    """One fixed ID plate per model, used everywhere a model is named."""
+def model_name(model_dir: str) -> str:
+    """The model as a person would name it: 'RoBERTa-base on cleaned text'."""
     cfg = run_config(model_dir)
-    data = cfg["data"]
-    parts = [DATASETS.get(data["dataset"], data["dataset"]), model_label(model_dir)]
+    name = model_label(model_dir)
     if (cfg.get("features") or {}).get("use_evidence"):
-        parts.append("+ evidence")
-    if data.get("variant", "raw") != "raw":
-        parts.append(data["variant"])
-    if not is_baseline(model_dir):  # a baseline is deterministic: one run is the result
-        parts.append(f"seed {cfg['run']['seed']}")
-    f1 = test_f1(model_dir)
-    if f1 is not None:
-        parts.append(f"test F1 {f1:.3f}")
-    return " · ".join(parts)
+        name += " with evidence"
+    if variant_of(model_dir) != "raw":
+        name += " on cleaned text"
+    elif dataset_of(model_dir) == "isot":
+        name += " on raw text"
+    return name
 
 
 def counterpart(model_dir: str, models: dict[str, Path]) -> str | None:
@@ -232,14 +278,11 @@ def load_llm(model_dir: str) -> serve.Classifier:
 
 
 def classifier(model_dir: str) -> serve.Classifier | serve.Baseline:
-    """The loaded model; the first use shows a spinner, and loading is never timed."""
+    """The loaded model. Only Qwen3-8B takes long enough to load to need a message."""
     if serve.is_qlora(model_dir):
-        with st.spinner(
-            "Loading Qwen3-8B in 4-bit with its adapter (first use only, about a minute)…"
-        ):
+        with st.spinner("Loading Qwen3-8B…"):
             return load_llm(model_dir)
-    with st.spinner("Loading the model (first check only)…"):
-        return load_model(model_dir)
+    return load_model(model_dir)
 
 
 # --------------------------------------------------------------------------- evidence
@@ -263,9 +306,8 @@ def evidence_search() -> serve.EvidenceSearch:
 def find_evidence(claim: str, dataset: str) -> serve.Found | None:
     if not retrieval_ready(dataset):
         return None
-    with st.spinner("Loading the retrieval index (first check only)…"):
-        search = evidence_search()
-        search.warm(dataset)
+    search = evidence_search()
+    search.warm(dataset)
     return search.find(claim, dataset)
 
 
@@ -278,7 +320,7 @@ def score(model_dir: str, claim: str) -> tuple[serve.Prediction, tuple[str, ...]
 
 
 def check(model_dir: str, claim: str, use_llm: bool) -> dict:
-    """Everything the Check view shows, timed: retrieval, the model and the LLM."""
+    """Everything the Check view shows: the verdict, the evidence and the LLM's opinion."""
     clf = classifier(model_dir)
     found = find_evidence(claim, clf.info.name)
     evidence = tuple(found.sentence_texts()) if found and clf.uses_evidence else None
@@ -308,14 +350,14 @@ def explanation(model_dir: str, claim: str, evidence: tuple[str, ...] | None) ->
 
 
 def why_of(model_dir: str, claim: str, evidence: tuple[str, ...] | None) -> serve.Explanation:
-    classifier(model_dir)  # load outside the cached function, with its spinner
+    classifier(model_dir)
     if is_baseline(model_dir):
-        return explanation(model_dir, claim, None)
-    with st.spinner(f"Finding the words behind {model_label(model_dir)}'s verdict (SHAP)…"):
+        return explanation(model_dir, claim, None)  # instant
+    with st.spinner("Finding the words behind the verdict…"):
         return explanation(model_dir, claim, evidence)
 
 
-# --------------------------------------------------------------------------- rating ladder
+# --------------------------------------------------------------------------- verdicts
 
 
 def share(p: float) -> str:
@@ -331,9 +373,18 @@ def verdict(fake_prob: float) -> tuple[str, str, str]:
     return next((word, color, icon) for bound, word, color, icon in VERDICTS if fake_prob <= bound)
 
 
-def verdict_text(fake_prob: float) -> str:
-    word, color, icon = verdict(fake_prob)
-    return f":{color}[{icon} {word}]"
+def verdict_sentence(pred: serve.Prediction, rungs: pd.DataFrame | None = None) -> str:
+    """'**Likely false**, with a >99% probability that the claim is false.' For a dataset
+    with more than two labels the most likely label is named too."""
+    word, color, icon = verdict(pred.fake_prob)
+    text = (
+        f":{color}[{icon} **{word}**], with a **{share(pred.fake_prob)}** probability that "
+        "the claim is false"
+    )
+    if rungs is not None and len(rungs) > 2:
+        lit = rungs[rungs["lit"]].iloc[0]
+        text += f", most likely rated **{lit['name']}**"
+    return text + "."
 
 
 def rung_name(label: str) -> str:
@@ -362,7 +413,7 @@ def ladder_rungs(
     rungs["name"] = [rung_name(x) for x in rungs["label"]]
     rungs["order"] = range(len(rungs))
     rungs["prob"] = rungs["label"].map(probs) if probs else float("nan")
-    rungs["pct"] = rungs["prob"].map(lambda p: "–" if pd.isna(p) else share(p))
+    rungs["pct"] = rungs["prob"].map(lambda p: "" if pd.isna(p) else share(p))
     rungs["lit"] = rungs["prob"] == rungs["prob"].max() if probs else False
     confident = fake_prob is not None and verdict(fake_prob)[0] != MIXED
     family = [rating_color(label) for label in rungs["label"]]
@@ -392,7 +443,7 @@ def ladder_chart(rungs: pd.DataFrame, height: int = 36, names: str = "all") -> a
     named = pd.Series(True, index=rungs.index) if every else rungs["lit"]
     rungs = rungs.assign(
         text=[
-            f"{name}  {pct}" if show else pct
+            f"{name}  {pct}".strip() if show else pct
             for name, pct, show in zip(rungs["name"], rungs["pct"], named, strict=True)
         ],
         weight=["bold" if lit else "normal" for lit in rungs["lit"]],
@@ -416,60 +467,22 @@ def ladder_chart(rungs: pd.DataFrame, height: int = 36, names: str = "all") -> a
     return alt.layer(rects, *labels).properties(height=height).configure_view(strokeWidth=0)
 
 
-def show_ladder(rungs: pd.DataFrame, height: int = 36, names: str = "all") -> None:
+def show_ladder(rungs: pd.DataFrame, names: str = "all") -> None:
     lit = rungs[rungs["lit"]]
     alt_text = (
-        f"Rating ladder from false to true; {lit['name'].iloc[0]} is lit at {lit['pct'].iloc[0]}."
+        f"Rating ladder from false to true, {lit['name'].iloc[0]} lit at {lit['pct'].iloc[0]}."
         if len(lit)
         else "Rating ladder from false to true, waiting for a check."
     )
-    st.altair_chart(ladder_chart(rungs, height, names), width="stretch", alt=alt_text)
-    with st.container(horizontal=True, horizontal_alignment="distribute"):
-        st.caption(":material/arrow_back: false", width="content")
-        st.caption("true :material/arrow_forward:", width="content")
+    st.altair_chart(ladder_chart(rungs, names=names), width="stretch", alt=alt_text)
+    if len(rungs) > 3:  # a long ladder needs its direction; Fake / Real says it already
+        with st.container(horizontal=True, horizontal_alignment="distribute"):
+            st.caption(":material/arrow_back: false", width="content")
+            st.caption("true :material/arrow_forward:", width="content")
 
 
 def prediction_rungs(pred: serve.Prediction) -> pd.DataFrame:
     return ladder_rungs(tuple(pred.label_probs), pred.label_probs, pred.fake_prob)
-
-
-def duration(seconds: float) -> str:
-    return f"{seconds * 1000:.0f} ms" if seconds < 1 else f"{seconds:.2f} s"
-
-
-def reading_line(pred: serve.Prediction, rungs: pd.DataFrame) -> str:
-    """'91% probability false · most likely label: Pants on fire (48%)'. With two labels the
-    second half would only repeat the first, so it is left out."""
-    line = f"**{share(pred.fake_prob)}** probability false"
-    if len(rungs) <= 2:
-        return line
-    lit = rungs[rungs["lit"]].iloc[0]
-    return f"{line} · most likely label: **{lit['name']}** ({lit['pct']})"
-
-
-def timing_line(result: dict) -> str:
-    """Spec S6 (the model alone) and S7 (retrieval plus the LLM verdict, and the model)."""
-    found, pred, llm = result["found"], result["pred"], result["llm"]
-    within = pred.seconds <= SPEC_S6_SECONDS
-    model = (
-        f"Model {duration(pred.seconds)}, {'within' if within else 'over'} the "
-        f"{SPEC_S6_SECONDS * 1000:.0f} ms target (S6)."
-    )
-    parts = [("retrieval", found.seconds if found else None), ("model", pred.seconds)]
-    parts.append(("Qwen3-8B", llm.seconds if llm else None))
-    timed = [(name, s) for name, s in parts if s is not None]
-    total = sum(s for _, s in timed)
-    breakdown = " + ".join(f"{name} {duration(s)}" for name, s in timed)
-    if llm is None:
-        return (
-            f"{model} Full response {duration(total)} ({breakdown}); spec S7 times it with the "
-            "Qwen3-8B second opinion on."
-        )
-    within = total <= SPEC_S7_SECONDS
-    return (
-        f"{model} Full response {duration(total)} ({breakdown}), "
-        f"{'within' if within else 'over'} the {SPEC_S7_SECONDS:.0f} s target (S7)."
-    )
 
 
 # --------------------------------------------------------------------------- shared pieces
@@ -486,24 +499,29 @@ def init_state() -> None:
             st.session_state["claim"] = claim[:5000]
             st.session_state["auto_check"] = True
         st.session_state["use_llm"] = st.query_params.get("llm") == "1"
-    st.session_state.setdefault("claim", next(iter(EXAMPLE_CLAIMS.values())))
+    first_claim, first_dataset = next(iter(EXAMPLE_CLAIMS.values()))
+    st.session_state.setdefault("claim", first_claim)
+    st.session_state.setdefault("dataset", first_dataset)
     st.session_state.setdefault("result", None)
     st.session_state.setdefault("auto_check", False)
     st.session_state.setdefault("use_llm", False)
 
 
-def use_example(text: str) -> None:
+def use_example(text: str, dataset: str) -> None:
     st.session_state["claim"] = text
     for key in CLAIM_KEYS:
         st.session_state[key] = text
+    st.session_state["dataset"] = dataset
+    for key in ("dataset_check", "dataset_compare"):
+        st.session_state.pop(key, None)  # the pickers re-read the shared dataset
     st.session_state["auto_check"] = True
 
 
-def claim_box(key: str, label: str = "Claim or post") -> str:
+def claim_box(key: str) -> str:
     """A claim text box per view that shares one value across views."""
     st.session_state.setdefault(key, st.session_state["claim"])
     claim = st.text_area(
-        label,
+        "Claim or post",
         key=key,
         height=118,
         max_chars=5000,
@@ -516,38 +534,59 @@ def claim_box(key: str, label: str = "Claim or post") -> str:
 def example_links(where: str) -> None:
     """The example claims as quiet links under the claim box: one click loads and checks."""
     with st.container(horizontal=True, vertical_alignment="center", gap="medium"):
-        st.caption("Examples", width="content")
-        for i, (short, text) in enumerate(EXAMPLE_CLAIMS.items()):
+        st.caption("Try", width="content")
+        for i, (short, (text, dataset)) in enumerate(EXAMPLE_CLAIMS.items()):
             st.button(
                 short,
                 key=f"example_{where}_{i}",
                 on_click=use_example,
-                args=(text,),
+                args=(text, dataset),
                 type="tertiary",
-                help=text,
             )
+
+
+def dataset_picker(where: str, models: dict[str, Path]) -> str | None:
+    """Which dataset's models read the claim. Shared across views through ``dataset``."""
+    present = [d for d in DATASET_CHOICES if any(dataset_of(m) == d for m in models)]
+    if not present:
+        return None
+    if st.session_state["dataset"] not in present:
+        st.session_state["dataset"] = present[0]
+    key = f"dataset_{where}"
+    st.session_state.setdefault(key, st.session_state["dataset"])
+    chosen = st.selectbox(
+        "Trained on",
+        present,
+        format_func=DATASET_CHOICES.get,
+        key=key,
+        on_change=lambda: st.session_state.update(dataset=st.session_state[key]),
+    )
+    st.session_state["dataset"] = chosen
+    return chosen
+
+
+def default_model(choices: list[str]) -> str:
+    """The best transformer of the dataset (choices are ordered up the ladder, best first)."""
+    encoders = [m for m in choices if ladder_rank(m) == 1]
+    return (encoders or choices)[0]
 
 
 def llm_switch() -> None:
     """The Qwen3-8B switch. Its state lives in ``use_llm``, so it survives switching views
     (a widget's own key is dropped when its view is not shown)."""
-    adapters = llm_adapters()
     st.toggle(
-        "Qwen3-8B second opinion",
+        "Second opinion from Qwen3-8B",
         value=st.session_state["use_llm"],
         key="llm_switch",
         on_change=lambda: st.session_state.update(use_llm=st.session_state["llm_switch"]),
-        disabled=not adapters,
-        help="Adds the QLoRA-tuned Qwen3-8B verdict for the model's dataset. Loads 4-bit "
-        "weights (about 6 GB of GPU memory) the first time.",
+        disabled=not llm_adapters(),
     )
 
 
-def waiting_panel(title: str, body: str, note: str, command: str | None = None) -> None:
+def waiting_panel(title: str, body: str, command: str | None = None) -> None:
     """Content that is not available here yet: what will appear and what fills it."""
     st.markdown(f"**{title}**")
     st.markdown(body)
-    st.caption(note)
     if command:
         st.code(command, language="bash", wrap_lines=True)
 
@@ -557,7 +596,6 @@ def no_models_panel() -> None:
         "No trained models yet",
         "The verdict appears once there is a trained model under `outputs/`. The TF-IDF "
         "baseline trains in a minute on a CPU.",
-        "Models are found automatically: outputs/<run>/seed<N>/model",
         "python -m factcheck.train --config configs/classic/tfidf_lr_covid.yaml",
     )
 
@@ -596,162 +634,101 @@ def highlighted(why: serve.Explanation, top: int = 8) -> str:
     return "".join(out)
 
 
-def top_pushes(why: serve.Explanation, top: int = 8) -> pd.DataFrame:
-    """The strongest pushes: n-grams for a baseline (pairs kept whole), words for SHAP."""
+def top_pushes(why: serve.Explanation, top: int = 8) -> list[tuple[str, float]]:
+    """The strongest pushes, strongest first: n-grams for a baseline (pairs kept whole),
+    words for SHAP. Punctuation alone is not a reason."""
     pairs = why.features if why.features is not None else why.words()
-    words = pd.DataFrame({"word": [w.strip() for w, _ in pairs], "push": [v for _, v in pairs]})
-    words = words[words["word"].str.contains(r"\w")]  # punctuation alone is not a reason
-    return words.reindex(words["push"].abs().sort_values(ascending=False).index).head(top)
+    pairs = [(w.strip(), v) for w, v in pairs if re.search(r"\w", w) and abs(v) >= 0.005]
+    return sorted(pairs, key=lambda wv: -abs(wv[1]))[:top]
 
 
-def push_unit(model_dir: str) -> str:
-    """What a push is measured in: log-odds of false, except for a many-label baseline."""
-    many = len(classifier(model_dir).info.labels) > 2
-    return (
-        "score for the false labels over the rest"
-        if is_baseline(model_dir) and many
-        else "log-odds of false"
+def push_range(whys: list[serve.Explanation], top: int = 8) -> tuple[float, float]:
+    """One scale for word bars that sit side by side, so equal pushes draw equal bars."""
+    values = [v for why in whys for _, v in top_pushes(why, top)] or [0.0]
+    return min(0.0, min(values)), max(0.0, max(values)) or 1.0
+
+
+def push_bars(
+    why: serve.Explanation, top: int = 8, scale: tuple[float, float] | None = None
+) -> None:
+    """The strongest pushes as aligned rows: word, a bar from zero, the value in its own
+    column. Brick bars push towards false, green towards true."""
+    pushes = top_pushes(why, top)
+    if not pushes:
+        st.caption("No single word moved this verdict.")
+        return
+    low, high = scale or push_range([why], top)
+    span = (high - low) or 1.0
+    zero = -low / span * 100
+    ends = ("<span>towards true</span>" if low < 0 else "<span></span>") + (
+        "<span>towards false</span>" if high > 0 else "<span></span>"
     )
-
-
-def push_domain(whys: list[serve.Explanation], top: int = 8) -> tuple[float, float]:
-    """An x range that holds every chart's bars, with room for the value labels: shared by
-    charts that sit side by side, so equal pushes draw equal bars."""
-    pushes = pd.concat([top_pushes(why, top)["push"] for why in whys])
-    reach = float(pushes.abs().max() or 1.0) * 0.3
-    low = min(0.0, float(pushes.min())) - (reach if (pushes < 0).any() else 0)
-    high = max(0.0, float(pushes.max())) + (reach if (pushes > 0).any() else 0)
-    return low, high
-
-
-def word_chart(
-    why: serve.Explanation,
-    unit: str,
-    top: int = 8,
-    domain: tuple[float, float] | None = None,
-) -> alt.LayerChart:
-    """Bars of the strongest pushes, strongest first, each labelled with its value (nothing
-    hover-only)."""
-    words = top_pushes(why, top)
-    words["towards"] = ["false" if v > 0 else "true" for v in words["push"]]
-    words["word_id"] = [f"{w} ({i})" for i, w in enumerate(words["word"])]
-    words["value"] = [f"{v:+.2f}" for v in words["push"]]
-    low, high = domain or push_domain([why], top)
-    base = alt.Chart(words).encode(
-        y=alt.Y(
-            "word_id:N",
-            sort=list(words["word_id"]),
-            title=None,
-            axis=alt.Axis(labelExpr="replace(datum.label, / \\(\\d+\\)$/, '')", labelFontSize=14),
-        ),
-    )
-    x = alt.X(
-        "push:Q",
-        title=f"Push towards false (+) or true (−), {unit}",
-        scale=alt.Scale(domain=[low, high], nice=False),
-        axis=alt.Axis(labelFontSize=12, titleFontSize=13, titleFontWeight="normal", tickCount=6),
-    )
-    bars = base.mark_bar(cornerRadius=2, height=15).encode(
-        x=x,
-        color=alt.Color(
-            "towards:N",
-            scale=alt.Scale(domain=["false", "true"], range=[PUSH_FALSE, PUSH_TRUE]),
-            legend=None,
-        ),
-    )
-    # Two text layers, so a value sits beyond the end of its bar on either side of zero.
-    right = (
-        base.mark_text(fontSize=13, baseline="middle", align="left", dx=5)
-        .encode(x=x, text="value:N")
-        .transform_filter("datum.push > 0")
-    )
-    left = (
-        base.mark_text(fontSize=13, baseline="middle", align="right", dx=-5)
-        .encode(x=x, text="value:N")
-        .transform_filter("datum.push <= 0")
-    )
-    return alt.layer(bars, right, left).properties(height=32 * len(words) + 10)
-
-
-def method_line(why: serve.Explanation) -> str:
-    if why.evals == 0:
-        return (
-            f"Exact: each n-gram's weight × its TF-IDF value, no sampling "
-            f"({duration(why.seconds)})."
+    rows = [
+        f'<div class="row key"><span></span><span class="ends">{ends}</span><span></span></div>'
+    ]
+    for rank, (word, value) in enumerate(pushes):
+        width = abs(value) / span * 100
+        left = zero if value > 0 else zero - width
+        rows.append(
+            f'<div class="row{" strong" if rank < 2 else ""}">'
+            f'<span class="word">{html.escape(word)}</span>'
+            f'<span class="track"><span class="zero" style="left:{zero:.2f}%"></span>'
+            f'<span class="bar {"false" if value > 0 else "true"}" '
+            f'style="left:{left:.2f}%;width:{max(width, 0.6):.2f}%"></span></span>'
+            f'<span class="value">{value:+.2f}</span></div>'
         )
-    return f"SHAP partition explainer, {why.evals} model calls ({duration(why.seconds)})."
+    st.markdown(f'<div class="pushes">{"".join(rows)}</div>', unsafe_allow_html=True)
 
 
 def why_column(
     model_dir: str,
     pred: serve.Prediction,
     why: serve.Explanation,
-    domain: tuple[float, float] | None = None,
+    scale: tuple[float, float] | None = None,
 ) -> None:
     """One model's reading of the claim: its verdict, the claim with its words tinted, and
     the strongest pushes."""
-    st.markdown(f"#### {model_label(model_dir)}")
-    st.markdown(f"{verdict_text(pred.fake_prob)} · {share(pred.fake_prob)} probability false")
+    st.markdown(f"#### {model_name(model_dir)}")
+    st.markdown(verdict_sentence(pred))
     with st.container(border=True):
         st.markdown(highlighted(why))
-    if why.features is not None and abs(why.rest) >= 0.01:
-        st.caption(
-            f"Character patterns (letter sequences inside words, not drawn on the claim) add "
-            f"{why.rest:+.2f} in total."
-        )
-    st.altair_chart(
-        word_chart(why, push_unit(model_dir), domain=domain),
-        width="stretch",
-        alt=f"The words that moved {model_label(model_dir)}'s verdict most.",
-    )
-    st.caption(f"{method_line(why)} {plate(model_dir)}")
-
-
-def push_list(why: serve.Explanation, top: int = 5) -> str:
-    """The strongest pushes as one line of text, for narrow columns."""
-    words = top_pushes(why, top)
-    return " · ".join(
-        f":{'red' if v > 0 else 'green'}[**{escape_markdown(w)}**] {v:+.2f}"
-        for w, v in zip(words["word"], words["push"], strict=True)
-    )
+    push_bars(why, scale=scale)
 
 
 # --------------------------------------------------------------------------- check panels
 
 
-def verdict_block(result: dict | None, model_dir: str | None, rungs: pd.DataFrame) -> None:
-    """The ruling: a serif verdict line, how sure the model is, then the thin ladder."""
+def verdict_block(result: dict | None, rungs: pd.DataFrame) -> None:
+    """The ruling: a serif verdict line, one sentence on how sure the model is, the ladder."""
     with st.container(border=True):
         if result:
             pred = result["pred"]
             word, color, icon = verdict(pred.fake_prob)
             st.header(f":{color}[{icon} {word}]", anchor=False)
-            st.markdown(reading_line(pred, rungs))
+            text = f"The model gives a **{share(pred.fake_prob)}** probability that this claim is false"
+            if len(rungs) > 2:
+                lit = rungs[rungs["lit"]].iloc[0]
+                text += f", and rates it most likely **{lit['name']}**"
+            st.markdown(text + ".")
         else:
             st.header(":gray[No claim checked yet]", anchor=False)
             st.markdown("Pick an example under the box, or paste a claim and press **Check**.")
         show_ladder(rungs)
-        if result:
-            st.caption(f"{plate(model_dir)}  \n{timing_line(result)}")
 
 
 def llm_block(result: dict, encoder_pred: serve.Prediction) -> None:
-    llm, llm_dir = result["llm"], result["llm_dir"]
+    llm = result["llm"]
+    agree = verdict(encoder_pred.fake_prob)[0] == verdict(llm.fake_prob)[0]
     with st.container(border=True):
-        st.markdown("#### Second opinion: Qwen3-8B")
-        agree = verdict(encoder_pred.fake_prob)[0] == verdict(llm.fake_prob)[0]
-        st.markdown(
-            f"{verdict_text(llm.fake_prob)} · {share(llm.fake_prob)} probability false · "
-            f"{duration(llm.seconds)} · "
-            + (
-                "agrees with the model above."
-                if agree
-                else ":material/call_split: **disagrees with the model above**: a claim worth a "
-                "human check."
+        st.markdown("#### Second opinion from Qwen3-8B")
+        st.markdown(verdict_sentence(llm, prediction_rungs(llm)))
+        if agree:
+            st.markdown("It agrees with the model above.")
+        else:
+            st.markdown(
+                ":material/call_split: **It disagrees with the model above**, so this claim "
+                "is worth a human check."
             )
-        )
-        show_ladder(prediction_rungs(llm), names="lit")
-        st.caption(plate(llm_dir))
 
 
 def evidence_section(result: dict, clf) -> None:  # noqa: ANN001  (Classifier or Baseline)
@@ -759,38 +736,31 @@ def evidence_section(result: dict, clf) -> None:  # noqa: ANN001  (Classifier or
     found = result["found"]
     if found is None:
         waiting_panel(
-            "The retrieval index is not built on this machine",
-            "Similar fact-checked claims and evidence sentences appear here once it is built "
-            "(a few minutes, once per machine).",
-            "Built by factcheck.retrieval.",
+            "The evidence index is not built on this machine",
+            "Similar fact-checked claims and evidence sentences appear here once it is built.",
             "python -m factcheck.retrieval build",
         )
         return
     dataset = DATASETS.get(clf.info.name, clf.info.name)
     similar_col, sentence_col = st.columns(2, gap="large")
     with similar_col:
-        st.markdown(f"**Already fact-checked, most similar first** · {dataset} training set")
+        st.markdown(f"**Similar claims already fact-checked in {dataset}**")
         for hit in found.similar or []:
             st.markdown(
                 f":{rating_color(hit.label_name)}[**{rung_name(hit.label_name)}**] "
-                f"{escape_markdown(shorten(hit.text))}  \n"
-                f":gray[similarity {hit.score:.2f}]"
+                f"{escape_markdown(shorten(hit.text))}"
             )
         if not found.similar:
-            st.caption("No training claims for this dataset in the index.")
+            st.markdown(":gray[None found.]")
     with sentence_col:
-        st.markdown("**Closest evidence sentences** · PUBHEALTH fact-check articles, Climate-FEVER")
+        st.markdown("**Closest sentences from fact-check articles**")
         for sentence in found.sentences:
+            source = SOURCES.get(sentence.source, sentence.source)
             st.markdown(
                 f"{escape_markdown(shorten(sentence.text, 300))}  \n"
-                f":gray[{serve.POOL_NAMES[sentence.source]} · similarity {sentence.score:.2f}]"
+                f'<span class="source">From {html.escape(source)}</span>',
+                unsafe_allow_html=True,
             )
-    note = (
-        "The model above reads the claim together with these evidence sentences."
-        if clf.uses_evidence
-        else "Retrieved by meaning (bge-small embeddings); the verdict above reads the claim alone."
-    )
-    st.caption(f"{note} Retrieval took {duration(found.seconds)}.")
 
 
 # --------------------------------------------------------------------------- views
@@ -802,13 +772,16 @@ def check_view(models: dict[str, Path]) -> None:
         claim = claim_box("claim_check")
         example_links("check")
     with col_side:
+        dataset = dataset_picker("check", models)
+        choices = [m for m in models if dataset_of(m) == dataset]
         model_dir = st.selectbox(
             "Model",
-            list(models),
-            format_func=plate,
+            choices,
+            index=choices.index(default_model(choices)) if choices else None,
+            format_func=model_name,
             placeholder="No trained models yet",
-            disabled=not models,
-            key="check_model",
+            disabled=not choices,
+            key=f"check_model_{dataset}",
         )
         llm_switch()
         pressed = st.button(
@@ -837,7 +810,7 @@ def check_view(models: dict[str, Path]) -> None:
     else:
         rungs = ladder_rungs(("fake", "mixture", "real"))
         rungs["name"] = ["Likely false", "Mixed", "Likely true"]
-    verdict_block(result, model_dir, rungs)
+    verdict_block(result, rungs)
     if not result:
         if not models:
             no_models_panel()
@@ -851,108 +824,75 @@ def check_view(models: dict[str, Path]) -> None:
     readings = [(model_dir, result["pred"], result["evidence"])]
     if pair:
         readings.append((pair, *score(pair, claim)))
-    if not is_baseline(model_dir) and pair:
-        readings.reverse()  # the ladder reads left to right: the baseline first
+    readings.sort(key=lambda r: ladder_rank(r[0]))  # the ladder reads left to right
     whys = [why_of(m, claim, evidence) for m, _, evidence in readings]
-    units = {push_unit(m) for m, _, _ in readings}
-    domain = push_domain(whys) if len(units) == 1 else None  # one scale when the units match
     for column, (m, pred, _), why in zip(
         st.columns(len(readings), gap="large"), readings, whys, strict=True
     ):
         with column:
-            why_column(m, pred, why, domain)
-    st.caption(
-        "Brick words push the model towards false, green towards true; the two strongest are "
-        "bold."
-        + (" Both charts share one scale." if domain else "")
-        + (
-            " The same claim, read by the bottom and the top of the ladder of models."
-            if pair
-            else ""
-        )
-    )
+            why_column(m, pred, why, push_range(whys))
 
     st.space("medium")
     evidence_section(result, classifier(model_dir))
 
 
-def ladder_rank(model_dir: str) -> int:
-    """Where a servable model sits on the ladder: baseline, encoder, then the LLM."""
-    return 0 if is_baseline(model_dir) else 2 if serve.is_qlora(model_dir) else 1
-
-
-def compare_defaults(models: dict[str, Path]) -> list[str]:
-    """Up the ladder for the best model's dataset: its TF-IDF baseline, the fast DistilBERT
-    and the best transformer."""
-    encoders = [m for m in models if not is_baseline(m) and not serve.is_qlora(m)]
-    if not encoders:
-        return list(models)[:1]
-    best = encoders[0]
-    dataset = dataset_of(best)
-    baseline = [m for m in models if is_baseline(m) and dataset_of(m) == dataset]
-    fast = [
-        m
-        for m in encoders[1:]
-        if dataset_of(m) == dataset and "distilbert" in run_config(m)["model"]["name"]
-    ]
-    return [*baseline[:1], *fast[:1], best]
+def compare_defaults(choices: list[str]) -> list[str]:
+    """Up the ladder: the TF-IDF baseline, the fast DistilBERT and the best transformer."""
+    baseline = [m for m in choices if is_baseline(m)]
+    encoders = [m for m in choices if ladder_rank(m) == 1]
+    fast = [m for m in encoders[1:] if "distilbert" in run_config(m)["model"]["name"]]
+    return [*baseline[:1], *fast[:1], *encoders[:1]] or choices[:1]
 
 
 def compare_view(models: dict[str, Path]) -> None:
-    claim = claim_box("claim_compare")
-    example_links("compare")
+    col_claim, col_side = st.columns([6.4, 3.6], gap="medium")
+    with col_claim:
+        claim = claim_box("claim_compare")
+        example_links("compare")
     st.session_state.pop("auto_check", False)  # every comparison below runs on each rerun
     if not models:
         no_models_panel()
         return
-    with st.container(horizontal=True, vertical_alignment="bottom", gap="medium"):
+    with col_side:
+        dataset = dataset_picker("compare", models)
+        choices = [m for m in models if dataset_of(m) == dataset]
         chosen = st.multiselect(
-            "Models to compare, bottom of the ladder first",
-            list(models),
-            default=compare_defaults(models),
-            format_func=plate,
+            "Models",
+            choices,
+            default=compare_defaults(choices),
+            format_func=model_name,
             max_selections=4,
-            key="compare_models",
-        )
-        show_words = st.toggle(
-            "Show the words behind each verdict", value=True, key="compare_words"
+            key=f"compare_models_{dataset}",
         )
     if not (claim.strip() and chosen):
         st.markdown("Choose up to four models to read the claim side by side.")
         return
 
-    chosen = sorted(chosen, key=ladder_rank)
+    chosen = sorted(chosen, key=lambda m: (ladder_rank(m), choices.index(m)))
     results = {m: score(m, claim) for m in chosen}
+    whys = {m: why_of(m, claim, evidence) for m, (_, evidence) in results.items()}
+    scale = push_range(list(whys.values()), top=5)
     st.space("small")
-    for column, (model_dir, (pred, evidence)) in zip(
+    for column, (model_dir, (pred, _)) in zip(
         st.columns(len(chosen), gap="large"), results.items(), strict=True
     ):
         with column:
-            st.markdown(f"#### {model_label(model_dir)}")
-            st.caption(plate(model_dir))
-            st.subheader(verdict_text(pred.fake_prob), anchor=False)
-            rungs = prediction_rungs(pred)
-            st.markdown(f"{reading_line(pred, rungs)} · {duration(pred.seconds)}")
-            show_ladder(rungs, names="lit")
-            if show_words:
-                why = why_of(model_dir, claim, evidence)
-                with st.container(border=True):
-                    st.markdown(highlighted(why))
-                st.markdown(push_list(why))
-                st.caption(method_line(why))
+            st.markdown(f"#### {model_name(model_dir)}")
+            st.markdown(verdict_sentence(pred, prediction_rungs(pred)))
+            show_ladder(prediction_rungs(pred), names="lit")
+            with st.container(border=True):
+                st.markdown(highlighted(whys[model_dir]))
+            push_bars(whys[model_dir], top=5, scale=scale)
     verdicts = {verdict(p.fake_prob)[0] for p, _ in results.values()}
     st.space("small")
     if len(results) > 1 and len(verdicts) > 1:
         st.markdown(
-            ":material/call_split: **The models disagree on this claim.** Read which words each "
-            "one leaned on: the same claim leads them to different rulings."
+            ":material/call_split: **The models disagree on this claim.** Each one leans on "
+            "different words."
         )
     elif len(results) > 1:
-        st.markdown(f"All {len(results)} models agree: **{verdicts.pop()}**.")
-    if show_words:
-        st.caption(
-            "Brick words push towards false, green towards true. Baseline values are exact "
-            "weights × TF-IDF; transformer values are SHAP, in log-odds of false."
+        st.markdown(
+            f"All {len(results)} models agree that the claim is **{verdicts.pop().lower()}**."
         )
 
 
@@ -993,20 +933,18 @@ def reuters_share() -> dict[str, float] | None:
 def shortcut_reading(model_dir: str, text: str) -> None:
     """One ISOT model's reading of the article; a baseline also shows the words it leaned on."""
     pred, _ = score(model_dir, text)
-    st.markdown(f"**{model_label(model_dir)}**")
-    st.markdown(f"{verdict_text(pred.fake_prob)} · {share(pred.fake_prob)} probability false")
+    st.markdown(f"#### {model_label(model_dir)}")
+    st.markdown(verdict_sentence(pred))
     show_ladder(prediction_rungs(pred))
     if is_baseline(model_dir):
-        why = why_of(model_dir, text, None)
-        st.markdown(f"Strongest words: {push_list(why, 4)}")
-    st.caption(plate(model_dir))
+        push_bars(why_of(model_dir, text, None), top=4)
 
 
 def shortcut_view(models: dict[str, Path]) -> None:
     shares = reuters_share()
     share_text = (
         f" In the raw training text **{shares['raw']:.1%}** of real articles contain "
-        f"“(Reuters)”; after removing source shortcuts, **{shares['clean']:.1%}**."
+        f"“(Reuters)”, and **{shares['clean']:.1%}** after cleaning."
         if shares
         else ""
     )
@@ -1018,7 +956,7 @@ def shortcut_view(models: dict[str, Path]) -> None:
 
     articles = fake_articles()
     if not articles:
-        st.caption(
+        st.markdown(
             "Prepare ISOT first: `python scripts/download_data.py isot && python scripts/prepare_data.py isot`."
         )
         return
@@ -1035,16 +973,13 @@ def shortcut_view(models: dict[str, Path]) -> None:
         )
     text = DATELINE + article if add_dateline else article
     with st.container(border=True):
-        st.caption(f"Fake article {index + 1} of {len(articles)} · ISOT test set")
         st.markdown(
             (f"**:blue-background[{escape_markdown(DATELINE.strip())}]** " if add_dateline else "")
             + escape_markdown(article)
         )
-    if add_dateline:
-        st.caption("Blue marks the source shortcut: style, not facts.")
 
     picks: dict[tuple[str, bool], str] = {}
-    for m in models:  # the best logged model per variant and kind (models are sorted best first)
+    for m in models:  # the best model per variant and kind (models are ordered best first)
         if dataset_of(m) == "isot" and not serve.is_qlora(m):
             picks.setdefault((variant_of(m), is_baseline(m)), m)
     commands = {
@@ -1068,20 +1003,13 @@ def shortcut_view(models: dict[str, Path]) -> None:
                 model_dir = picks.get((variant, baseline))
                 if model_dir is None:
                     waiting_panel(
-                        f"No {'TF-IDF baseline' if baseline else 'transformer'} for this variant",
+                        f"No {'TF-IDF baseline' if baseline else 'transformer'} for this text yet",
                         f"Needs an ISOT model trained on the {variant} text.",
-                        "Shortcut study, experiment E7.",
                         commands[(variant, baseline)],
                     )
                 else:
                     shortcut_reading(model_dir, text)
                 st.space("small")
-    st.markdown(
-        "What to look for: the raw-trained transformer flips to *real* on the dateline alone. "
-        "The raw TF-IDF baseline shows the same shortcut as numbers (“reuters” pushes towards "
-        "real), but blog-style words such as “read more” can outweigh it, so whether it flips "
-        "depends on the article. The clean-trained models should barely move."
-    )
 
 
 SPEC_STATUS = {
@@ -1118,32 +1046,32 @@ METHOD_NAMES = {
 }
 
 
-def rung_of(model_name: str, method) -> int:  # noqa: ANN001  (method may be NaN)
-    if model_name == "tfidf":
+def rung_of(model_name_: str, method) -> int:  # noqa: ANN001  (method may be NaN)
+    if model_name_ == "tfidf":
         return 0
     if method in ("glove_svm", "knn_vote"):
         return 1
-    if str(model_name).startswith("bilstm"):
+    if str(model_name_).startswith("bilstm"):
         return 2
-    if str(model_name).startswith("Qwen/"):
+    if str(model_name_).startswith("Qwen/"):
         return 4
     return 3
 
 
-def run_label(model_name: str, method, run_name: str) -> str:  # noqa: ANN001
-    """A short name for the best run on a rung: 'TF-IDF + LR', 'deberta-v3-large LoRA'..."""
+def run_label(model_name_: str, method, run_name: str) -> str:  # noqa: ANN001
+    """A short name for the best run on a rung: 'TF-IDF + LR', 'DeBERTa-v3-large LoRA'..."""
     method = method if isinstance(method, str) else ""
-    if model_name in ("tfidf", "glove-300d") or method == "knn_vote":
+    if model_name_ in ("tfidf", "glove-300d") or method == "knn_vote":
         return METHOD_NAMES.get(method, method)
-    if str(model_name).startswith("bilstm"):
+    if str(model_name_).startswith("bilstm"):
         return "Bi-LSTM + GloVe"
-    if str(model_name).startswith("Qwen/"):
+    if str(model_name_).startswith("Qwen/"):
         return f"Qwen3-8B {METHOD_NAMES.get(method, method)}"
-    label = MODEL_NAMES.get(model_name, str(model_name).split("/")[-1])
+    label = MODEL_NAMES.get(model_name_, str(model_name_).split("/")[-1])
     if method == "lora":
         label += " LoRA"
     if "evidence" in run_name:
-        label += " + evidence"
+        label += " with evidence"
     return label
 
 
@@ -1166,7 +1094,7 @@ def ladder_of_results(test: pd.DataFrame) -> pd.DataFrame:
     best["label"] = [
         f"{f1:.3f}  {run_label(m, k, r)}"
         for f1, m, k, r in zip(
-            best["macro_f1"], best["model_name"], best["method"], best["run_name"], strict=False
+            best["macro_f1"], best["model_name"], best["method"], best["run_name"], strict=True
         )
     ]
     rungs = best.groupby("dataset")["rung"].transform("nunique")
@@ -1202,7 +1130,7 @@ def ladder_results_chart(rows: pd.DataFrame) -> alt.LayerChart:
 
 def specs_scorecard(specs: pd.DataFrame) -> None:
     passing = int((specs["status"] == "PASS").sum())
-    st.subheader(f"Specifications: {passing} of {len(specs)} passing", anchor=False)
+    st.subheader(f"Specifications, {passing} of {len(specs)} passing", anchor=False)
     widths = [0.6, 4.5, 3, 1.2, 1.7]
     header = st.columns(widths)
     for column, name in zip(
@@ -1224,9 +1152,7 @@ def results_view() -> None:
     if test.empty:
         waiting_panel(
             "No logged runs yet",
-            "Every training run appends its scores to `results/runs.csv`; they appear here "
-            "and in the specifications, with no numbers typed by hand.",
-            "Logged by factcheck.train.",
+            "Every training run appends its scores to `results/runs.csv`, and they appear here.",
             "python -m factcheck.train --config configs/classic/tfidf_lr_covid.yaml",
         )
         return
@@ -1234,8 +1160,8 @@ def results_view() -> None:
 
     st.subheader("The ladder of models, by dataset", anchor=False)
     st.markdown(
-        "The best run on each rung, from word counts at the top to the 8B LLM at the bottom. "
-        "Read the gaps: where TF-IDF is already close, the bigger models add little."
+        "The best run on each step, from word counts at the top to the 8B LLM at the bottom. "
+        "Where TF-IDF is already close, the bigger models add little."
     )
     ladder = ladder_of_results(test[~debug])
     present = [d for d in DATASETS if d in set(ladder["dataset"])]
@@ -1280,30 +1206,6 @@ def results_view() -> None:
 # --------------------------------------------------------------------------- page
 
 
-def gpu_memory_text() -> str:
-    """Live GPU memory against spec S8 (everything in the app fits in 8 GB)."""
-    if not torch.cuda.is_available():
-        return "CPU only"
-    used = torch.cuda.memory_reserved() / 2**30
-    total = torch.cuda.get_device_properties(0).total_memory / 2**30
-    return (
-        f"GPU memory held by the app right now {used:.1f} of {total:.1f} GB (spec S8, "
-        f"{SPEC_S8_GB:.0f} GB with every model loaded, is checked by hand)"
-    )
-
-
-def footer(models: dict[str, Path]) -> None:
-    """Run last, so the GPU memory counts every model this run loaded."""
-    st.space("large")
-    st.divider()
-    device = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU"
-    st.caption(
-        f"Triage support for human fact-checkers, not a judge of truth. "
-        f"{len(models)} trained model{'s' if len(models) != 1 else ''} found on {device} · "
-        f"{gpu_memory_text()}."
-    )
-
-
 def main() -> None:
     st.set_page_config(
         page_title="Fact-Check Lab",
@@ -1311,6 +1213,7 @@ def main() -> None:
         layout="wide",
         initial_sidebar_state="collapsed",
     )
+    st.html(STYLE)
     init_state()
     models = find_models(include_llm=st.session_state["use_llm"])
     has_isot = any(dataset_of(m) == "isot" for m in models)
@@ -1318,13 +1221,8 @@ def main() -> None:
     if st.session_state["view"] not in views:
         st.session_state["view"] = "check"
 
-    with st.container(horizontal=True, vertical_alignment="bottom", gap="large"):
-        with st.container(gap=None):
-            st.title("Fact-Check Lab", anchor=False)
-            st.markdown(
-                ":gray[Paste a claim, get an explained verdict, from word counts up to an 8B "
-                "LLM, on four misinformation datasets.]"
-            )
+    with st.container(horizontal=True, vertical_alignment="center", gap="large"):
+        st.title("Fact-Check Lab", anchor=False)
         view = st.segmented_control(
             "View",
             views,
@@ -1343,7 +1241,6 @@ def main() -> None:
         results_view()
     else:
         check_view(models)
-    footer(models)
 
 
 main()
