@@ -1,57 +1,68 @@
-# Fact-Check Lab theme: newsroom navy masthead, white work area, rating colours that mean
-# something (red false, orange/yellow mixed, green true) and nothing else. Locked to light
-# so the screen recording for the video always looks the same.
+# Fact-Check Lab theme (T58 redesign, 8 Nov): a published fact-check rather than a dashboard.
+# Warm paper ground, charcoal ink, one Prussian-blue action colour, serif headings. Brick, ochre
+# and bottle green mean verdicts (and the words that push towards them) and nothing else; the
+# blue tint marks style shortcuts. Locked to light so the video recording always looks the same.
 
 [theme]
 base = "light"
-primaryColor = "#13294b"
-backgroundColor = "#ffffff"
-secondaryBackgroundColor = "#eef2f7"
-textColor = "#13294b"
-linkColor = "#1f5fbf"
-borderColor = "#c5cfdd"
-codeBackgroundColor = "#eef2f7"
-codeTextColor = "#13294b"
-
-redColor = "#c8102e"
-orangeColor = "#e87722"
-yellowColor = "#b98900"
-greenColor = "#2e8540"
-blueColor = "#1f5fbf"
-violetColor = "#6b4fbb"
-grayColor = "#4a5b75"
-
-font = "'Source Sans 3':https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700;800&display=swap"
-codeFont = "'Source Code Pro':https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;500&display=swap"
-baseFontSize = 16
-headingFontSizes = ["2.5rem", "1.6rem", "1.25rem", "1.05rem", "1rem", "0.9rem"]
-headingFontWeights = [800, 700, 700, 600, 600, 600]
-metricValueFontSize = "2rem"
-metricValueFontWeight = 800
-
-baseRadius = "8px"
-buttonRadius = "8px"
+primaryColor = "#1e3a5f"
+backgroundColor = "#faf8f5"
+secondaryBackgroundColor = "#f1ede6"
+textColor = "#18181b"
+linkColor = "#1e3a5f"
+linkUnderline = true
+borderColor = "#d6d1c7"
 showWidgetBorder = true
-showSidebarBorder = false
-linkUnderline = false
+showSidebarBorder = true
+codeBackgroundColor = "#f1ede6"
+codeTextColor = "#18181b"
 
-dataframeHeaderBackgroundColor = "#13294b"
-dataframeHeaderTextColor = "#ffffff"
-dataframeBorderColor = "#d6deea"
-chartCategoricalColors = ["#13294b", "#1f5fbf", "#6b4fbb", "#0f7c8c", "#4a5b75", "#8a5a9e", "#5c7ea8"]  # no rating colours: red, orange and green mean verdicts only
+# Verdicts: text colours pass WCAG AA on the paper and on their own tint.
+redColor = "#b8332a"
+redTextColor = "#9e2b23"
+redBackgroundColor = "#f8e3e0"
+orangeColor = "#9a5b00"
+orangeTextColor = "#8a5200"
+orangeBackgroundColor = "#f7ead0"
+yellowColor = "#9a5b00"
+yellowTextColor = "#8a5200"
+yellowBackgroundColor = "#f7ead0"
+greenColor = "#0b6e4f"
+greenTextColor = "#0a5f44"
+greenBackgroundColor = "#dcefe6"
+blueColor = "#1e3a5f"
+blueTextColor = "#1e3a5f"
+blueBackgroundColor = "#dde7f3"
+grayColor = "#52525b"
+grayTextColor = "#52525b"
+grayBackgroundColor = "#ebe6dd"
 
-paddingTop = "2rem"
+font = "'Public Sans':https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap"
+headingFont = "'Newsreader':https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600;6..72,700&display=swap"
+codeFont = "'IBM Plex Mono':https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap"
+baseFontSize = 17
+headingFontSizes = ["2.6rem", "2.1rem", "1.35rem", "1.15rem", "1rem", "0.9rem"]
+headingFontWeights = [600, 600, 600, 600, 600, 600]
+metricValueFontSize = "2.1rem"
+metricValueFontWeight = 600
+
+baseRadius = "2px"
+buttonRadius = "2px"
+
+dataframeHeaderBackgroundColor = "#f1ede6"
+dataframeHeaderTextColor = "#18181b"
+dataframeBorderColor = "#d6d1c7"
+# Model families from the bottom of the ladder to the top, one hue light to dark. No verdict
+# colours here: brick, ochre and green mean verdicts only.
+chartCategoricalColors = ["#8fa3bd", "#5d7a9e", "#3a5a80", "#1e3a5f", "#0f2340"]
+
+paddingTop = "1.5rem"
 
 [theme.sidebar]
-backgroundColor = "#13294b"
-secondaryBackgroundColor = "#1d3a66"
-codeBackgroundColor = "#1d3a66"
-textColor = "#ffffff"
-codeTextColor = "#ffffff"
-borderColor = "#3a5785"
-primaryColor = "#ffffff"
-linkColor = "#a9c8ff"
-paddingTop = "1.5rem"
+backgroundColor = "#f1ede6"
+secondaryBackgroundColor = "#e8e2d8"
+textColor = "#18181b"
+borderColor = "#d6d1c7"
 
 [client]
 toolbarMode = "minimal"  # no Deploy button or developer menu in the demo recording

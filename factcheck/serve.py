@@ -9,11 +9,19 @@
     pred.label_probs, pred.fake_prob, pred.seconds
     why = explain(clf, "Vitamin D cures COVID-19 in 24 hours.")         # SHAP, per token
 
+    base = load("outputs/tfidf_lr_covid/seed42/model")                  # Classifier or Baseline
+    why = explain_linear(base, "Vitamin D cures COVID-19 in 24 hours.")  # exact, per n-gram
+
 A **classifier** is any saved run: a fine-tuned encoder (``model/`` with ``config.json``) or a
 QLoRA Qwen3-8B adapter (``model/`` with ``adapter_config.json``, T27). Either way it scores a
 claim exactly as in training, from the run's ``config.yaml``: the same truncation, and for runs
 trained with evidence (``features.use_evidence``, T29) the claim paired with evidence sentences.
 In the app those sentences come from open retrieval, not from the claim's own article.
+
+A **baseline** is a TF-IDF + logistic regression run (T54, ``model/model.joblib``). It scores a
+claim on the CPU in about a millisecond, and its why is exact rather than sampled: a linear
+model's push towards false is each n-gram's weight times its TF-IDF value
+(``explain_linear``).
 
 **Evidence** (plan Section 15) is the claim's most similar already fact-checked TRAINING claims
 of the model's dataset, with their verdicts (the T08 claim index), and the most similar
@@ -28,6 +36,7 @@ classifier that is already loaded, so the app holds one copy of each model's wei
 from __future__ import annotations
 
 import os
+import re
 import time
 from dataclasses import dataclass, field
 from functools import cached_property
@@ -69,9 +78,26 @@ def is_servable(model_dir: str | Path) -> bool:
     model_dir = Path(model_dir)
     if not (model_dir.parent / "config.yaml").exists():
         return False
+    if is_baseline(model_dir):
+        return True
     if not ((model_dir / "config.json").exists() or is_qlora(model_dir)):
         return False
     return not (run_config(model_dir).get("features") or {}).get("use_metadata")
+
+
+def is_baseline(model_dir: str | Path) -> bool:
+    """A TF-IDF + logistic regression run (T54). The other traditional baselines (Naive Bayes,
+    SVM, GloVe) are left out of the app: logistic regression is the one whose weights read as
+    an exact explanation."""
+    model_dir = Path(model_dir)
+    if not (model_dir / "model.joblib").exists() or not (model_dir.parent / "config.yaml").exists():
+        return False
+    return run_config(model_dir)["model"].get("method") == "tfidf_lr"
+
+
+def load(model_dir: str | Path) -> Classifier | Baseline:
+    """The saved run, ready to score claims: an encoder, a QLoRA adapter or a baseline."""
+    return Baseline(model_dir) if is_baseline(model_dir) else Classifier(model_dir)
 
 
 # --------------------------------------------------------------------------- classifiers
@@ -158,6 +184,58 @@ class Classifier:
         probs = self.proba([claim], evidence)[0]
         if self.device.type == "cuda":
             torch.cuda.synchronize()
+        seconds = time.perf_counter() - start
+        return Prediction(
+            label_probs={name: float(p) for name, p in zip(self.info.labels, probs, strict=True)},
+            fake_prob=float(probs[self.info.fake_label_ids].sum()),
+            seconds=seconds,
+        )
+
+
+class Baseline:
+    """A TF-IDF + logistic regression run (T54) behind the same interface as ``Classifier``:
+    ``info``, ``predict``, ``uses_evidence`` and ``qlora``. It runs on the CPU.
+
+    ``direction`` turns the classifier's weights into one push towards false per feature: the
+    false labels' mean score minus the other labels' mean score. For a two-label dataset that
+    is exactly the log-odds of false, the unit SHAP uses for the encoders.
+    """
+
+    uses_evidence = False
+    qlora = False
+
+    def __init__(self, model_dir: str | Path):
+        from factcheck.models.classic import ClassicPredictor
+
+        self.model_dir = Path(model_dir)
+        self.cfg = run_config(self.model_dir)
+        self.info: DatasetInfo = get_dataset(self.cfg["data"]["dataset"])
+        self.variant = self.cfg["data"].get("variant", "raw")
+        self.predictor = ClassicPredictor.load(self.model_dir / "model.joblib")
+        clf = self.predictor.classifier
+        if list(clf.classes_) != list(range(self.info.num_labels)):
+            raise ValueError(f"{self.model_dir}: classes {clf.classes_} are not the label ids")
+        weights, bias = clf.coef_, clf.intercept_
+        if weights.shape[0] == 1:  # two labels: sklearn keeps one row, the score of label 1
+            weights = np.vstack([np.zeros_like(weights[0]), weights[0]])
+            bias = np.array([0.0, bias[0]])
+        fake = list(self.info.fake_label_ids)
+        other = [i for i in range(self.info.num_labels) if i not in fake]
+        self.direction = weights[fake].mean(axis=0) - weights[other].mean(axis=0)
+        self.offset = float(bias[fake].mean() - bias[other].mean())
+        self.names = self.predictor.features.names()
+        self.word_count = len(self.predictor.features.word.get_feature_names_out())
+
+    @property
+    def name(self) -> str:
+        return self.cfg["run"]["name"]
+
+    def proba(self, texts: list[str], evidence: list[str] | None = None) -> np.ndarray:
+        return self.predictor.predict_proba(texts)
+
+    def predict(self, claim: str, evidence: list[str] | None = None) -> Prediction:
+        start = time.perf_counter()
+        probs = self.proba([claim])[0]
         seconds = time.perf_counter() - start
         return Prediction(
             label_probs={name: float(p) for name, p in zip(self.info.labels, probs, strict=True)},
@@ -254,7 +332,11 @@ class Explanation:
     base: float  # log-odds of false with every token masked
     probs: list[float]  # the model's label probabilities for the full claim
     seconds: float
-    evals: int
+    evals: int  # model calls (0: computed from the weights, not sampled)
+    # Baselines only: the n-grams found in the claim with their push (word pairs stay pairs),
+    # and the summed push of the character n-grams, which belong to no single word.
+    features: list[tuple[str, float]] | None = None
+    rest: float = 0.0
 
     def words(self) -> list[tuple[str, float]]:
         """Whole words with their summed push, rejoining sub-word pieces ("CO" "VID" "-"
@@ -309,4 +391,56 @@ def explain(
         probs=clf.proba([claim], evidence)[0].tolist(),
         seconds=seconds,
         evals=max_evals,
+    )
+
+
+def explain_linear(base: Baseline, claim: str) -> Explanation:
+    """The exact why of a TF-IDF + logistic regression verdict: each n-gram's push towards
+    false is its weight (``base.direction``) times its TF-IDF value in the claim. Pushes add
+    up: ``base + sum(words) + rest`` is the model's score for false (for two labels, the
+    log-odds of false).
+
+    For the highlighted claim each word gets its own n-gram's push plus an equal share of the
+    pairs it is in; ``features`` keeps the pairs whole for the ranked list.
+    """
+    start = time.perf_counter()
+    x = base.predictor.features.transform([claim]).tocsr()
+    push = {
+        int(j): float(v) * float(base.direction[j]) for j, v in zip(x.indices, x.data, strict=True)
+    }
+    words = {str(base.names[j]): v for j, v in push.items() if j < base.word_count}
+    rest = sum(v for j, v in push.items() if j >= base.word_count)
+
+    vectorizer = base.predictor.features.word
+    pattern = re.compile(vectorizer.token_pattern)
+    lead = claim[: len(claim) - len(claim.lstrip())]
+    pieces = re.findall(r"\S+\s*", claim)  # whitespace-split pieces, each with its spacing
+    tokens: list[tuple[str, int]] = []  # (token, index of the piece it is in)
+    for index, piece in enumerate(pieces):
+        tokens += [(m.group().lower(), index) for m in pattern.finditer(piece)]
+    values = np.zeros(len(pieces))
+    low, high = vectorizer.ngram_range
+    for n in range(low, high + 1):
+        grams: dict[str, list[list[int]]] = {}
+        for i in range(len(tokens) - n + 1):
+            gram = " ".join(token for token, _ in tokens[i : i + n])
+            grams.setdefault(gram, []).append([piece for _, piece in tokens[i : i + n]])
+        for gram, places in grams.items():
+            if gram not in words:
+                continue
+            share = words[gram] / (len(places) * n)  # split over its occurrences and its words
+            for place in places:
+                for piece in place:
+                    values[piece] += share
+    if lead:
+        pieces, values = [lead, *pieces], np.concatenate([[0.0], values])
+    return Explanation(
+        tokens=pieces,
+        towards_false=values,
+        base=base.offset,
+        probs=base.proba([claim])[0].tolist(),
+        seconds=time.perf_counter() - start,
+        evals=0,
+        features=sorted(words.items(), key=lambda kv: -abs(kv[1])),
+        rest=rest,
     )

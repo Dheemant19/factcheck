@@ -114,3 +114,89 @@ def test_sub_word_pieces_join_into_words():
     words = why.words()
     assert [w for w, _ in words] == ["Vitamin ", "cures ", "COVID-19 ", "fast."]
     assert words[2][1] == pytest.approx(0.3)
+
+
+# --------------------------------------------------------------------------- baselines (T58)
+
+REAL = ["CDC data shows cases rising in two states", "WHO publishes new testing data today",
+        "Health officials report case data by state", "State data on tests released by CDC"]  # fmt: skip
+FAKE = ["Miracle cure kills corona overnight", "Garlic cure stops corona, doctors stunned",
+        "Secret corona cure they hide from you", "This cure ends corona in one day"]  # fmt: skip
+
+
+def save_baseline(tmp_path, dataset: str = "covid", char_ngrams=(2, 4), labels=None):
+    """A TF-IDF + logistic regression run folder like factcheck.models.classic writes."""
+    import joblib
+    from sklearn.linear_model import LogisticRegression
+
+    from factcheck.models import classic
+
+    info = get_dataset(dataset)
+    mcfg = classic.with_defaults({"model": {"method": "tfidf_lr"}})["model"]
+    mcfg = {**mcfg, "word_min_df": 1, "char_min_df": 1, "char_ngrams": char_ngrams}
+    features = classic.TfidfFeatures(mcfg)
+    x = features.fit_transform(REAL + FAKE)
+    y = labels or [info.labels.index("real")] * 4 + [info.labels.index("fake")] * 4
+    clf = LogisticRegression(C=10).fit(x, y)
+    run_dir = tmp_path / f"tfidf_lr_{dataset}" / "seed42"
+    (run_dir / "model").mkdir(parents=True)
+    joblib.dump({"features": features, "classifier": clf, "labels": info.labels,
+                 "method": "tfidf_lr"}, run_dir / "model" / "model.joblib")  # fmt: skip
+    cfg = {"run": {"name": f"tfidf_lr_{dataset}", "seed": 42}, "data": {"dataset": dataset},
+           "model": {"family": "classic", "name": "tfidf", "method": "tfidf_lr"}}  # fmt: skip
+    (run_dir / "config.yaml").write_text(yaml.safe_dump(cfg), encoding="utf-8")
+    return run_dir / "model"
+
+
+def test_only_logistic_regression_baselines_are_servable(tmp_path):
+    model_dir = save_baseline(tmp_path)
+    assert serve.is_baseline(model_dir) and serve.is_servable(model_dir)
+    cfg_path = model_dir.parent / "config.yaml"
+    cfg = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))
+    cfg["model"]["method"] = "tfidf_nb"
+    cfg_path.write_text(yaml.safe_dump(cfg), encoding="utf-8")
+    assert not serve.is_baseline(model_dir) and not serve.is_servable(model_dir)
+
+
+def test_baseline_predicts_like_a_classifier(tmp_path):
+    base = serve.load(save_baseline(tmp_path))
+    assert isinstance(base, serve.Baseline) and not base.uses_evidence and not base.qlora
+    pred = base.predict("Miracle garlic cure for corona")
+    assert set(pred.label_probs) == set(base.info.labels)
+    assert sum(pred.label_probs.values()) == pytest.approx(1.0)
+    assert pred.fake_prob == pytest.approx(pred.label_probs["fake"]) and pred.fake_prob > 0.5
+
+
+def test_linear_why_adds_up_to_the_log_odds_of_false(tmp_path):
+    base = serve.load(save_baseline(tmp_path))
+    claim = "  Miracle cure: garlic stops corona, CDC data says."
+    why = serve.explain_linear(base, claim)
+    p = base.predict(claim).fake_prob
+    total = why.base + sum(v for _, v in why.features) + why.rest
+    assert total == pytest.approx(np.log(p / (1 - p)), abs=1e-4)
+    # The word shares cover the word n-grams exactly; the pieces rebuild the claim.
+    assert why.towards_false.sum() == pytest.approx(sum(v for _, v in why.features), abs=1e-6)
+    assert "".join(why.tokens) == claim
+    assert why.evals == 0 and abs(why.rest) > 0
+    pushes = dict(why.features)
+    assert pushes["cure"] > 0 and pushes["data"] < 0
+
+
+def test_linear_why_without_character_ngrams(tmp_path):
+    base = serve.load(save_baseline(tmp_path, char_ngrams=None))
+    why = serve.explain_linear(base, "Garlic cure stops corona")
+    assert why.rest == 0.0
+    words = dict(why.words())
+    assert words["cure "] > 0  # the unigram plus half of each pair it is in
+
+
+def test_linear_why_on_a_many_label_dataset(tmp_path):
+    info = get_dataset("liar")
+    labels = [info.labels.index(x) for x in ["true", "mostly-true", "half-true", "true"]] + [
+        info.labels.index(x) for x in ["false", "pants-fire", "barely-true", "false"]
+    ]
+    base = serve.load(save_baseline(tmp_path, "liar", labels=labels))
+    why = serve.explain_linear(base, "Secret corona cure")
+    assert base.direction.shape == (len(base.names),)
+    assert len(why.probs) == info.num_labels
+    assert dict(why.features)["cure"] > 0
