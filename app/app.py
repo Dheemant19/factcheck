@@ -20,14 +20,17 @@ theme lives in app/.streamlit/config.toml, plus the small stylesheet in ``STYLE`
 from __future__ import annotations
 
 import html
+import importlib
 import re
+import sys
 from pathlib import Path
+from typing import Any
 
 import altair as alt
 import pandas as pd
 import streamlit as st
 
-from factcheck import serve
+from factcheck.data import get_dataset
 from factcheck.data.prepare import load_splits
 from factcheck.evaluate import check_specs
 from factcheck.paths import OUTPUT_DIR
@@ -47,6 +50,9 @@ EXAMPLE_CLAIMS = {  # link text -> (the claim it loads, the dataset whose models
     "Vitamin D cure": ("Vitamin D supplements cure COVID-19 in 24 hours.", "covid"),
 }
 DATELINE = "WASHINGTON (Reuters) - "
+# The engine (factcheck.serve) imports torch and transformers, which takes seconds on a cold
+# start, so main() imports it after a skeleton of the page is on screen.
+serve: Any = None
 SOURCES = {  # where an evidence sentence comes from, as a phrase
     "pubhealth": "a PUBHEALTH fact-check article",
     "climate_fever": "the Climate-FEVER evidence set",
@@ -166,6 +172,16 @@ h3 { font-weight: 700 !important; }
 .pushes .value { font-family: 'IBM Plex Mono', monospace; font-size: 0.88rem;
   text-align: right; font-variant-numeric: tabular-nums; }
 .source { color: #52525b; font-size: 0.88rem; }
+/* Skeletons: where results will land, shown while models load and compute. */
+@keyframes shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+.skel { background: linear-gradient(90deg, #ece7de 25%, #f5f1ea 37%, #ece7de 63%);
+  background-size: 400% 100%; animation: shimmer 1.4s ease-in-out infinite; border-radius: 2px; }
+@media (prefers-reduced-motion: reduce) { .skel { animation: none; } }
+.skel-frame { border: 1px solid #d6d1c7; border-radius: 2px; padding: 1.4rem 1.2rem; }
+.skel-stack > * + * { margin-top: 0.75rem; }
+.skel-grid { display: grid; gap: 2.5rem; margin-top: 2rem; }
+.skel-bars { display: grid; grid-template-columns: minmax(6rem, 11rem) 1fr 3.6rem;
+  column-gap: 0.9rem; row-gap: 0.7rem; align-items: center; }
 /* The chosen-models row scrolls sideways; show its scrollbar as a thin pill under the chips. */
 [data-testid="stMultiSelectTagsContainer"] { scrollbar-width: thin !important;
   scrollbar-color: #8fa3bd transparent; padding-bottom: 3px; }
@@ -296,11 +312,10 @@ def load_llm(model_dir: str) -> serve.Classifier:
 
 
 def classifier(model_dir: str) -> serve.Classifier | serve.Baseline:
-    """The loaded model. Only Qwen3-8B takes long enough to load to need a message."""
-    if serve.is_qlora(model_dir):
-        with st.spinner("Loading Qwen3-8B…"):
-            return load_llm(model_dir)
-    return load_model(model_dir)
+    """The loaded model (the views show skeletons while a first load runs)."""
+    model = load_llm(model_dir) if serve.is_qlora(model_dir) else load_model(model_dir)
+    warmed().add(model_dir)
+    return model
 
 
 # --------------------------------------------------------------------------- evidence
@@ -369,10 +384,9 @@ def explanation(model_dir: str, claim: str, evidence: tuple[str, ...] | None) ->
 
 def why_of(model_dir: str, claim: str, evidence: tuple[str, ...] | None) -> serve.Explanation:
     classifier(model_dir)
-    if is_baseline(model_dir):
-        return explanation(model_dir, claim, None)  # instant
-    with st.spinner("Finding the words behind the verdict…"):
-        return explanation(model_dir, claim, evidence)
+    why = explanation(model_dir, claim, None if is_baseline(model_dir) else evidence)
+    warmed().add((model_dir, claim))
+    return why
 
 
 # --------------------------------------------------------------------------- verdicts
@@ -738,6 +752,78 @@ def why_column(
     push_bars(why, scale=scale)
 
 
+# --------------------------------------------------------------------------- skeletons
+
+
+def bar(width: str, height: str = "1rem") -> str:
+    return f'<div class="skel" style="width:{width};height:{height}"></div>'
+
+
+def skeleton_reading(rows: int = 6) -> str:
+    """One model's column: name, sentence, the claim exhibit and the word bars."""
+    bars = "".join(
+        bar(f"{w}%", "0.9rem") + bar(f"{b}%", "0.9rem") + bar("100%", "0.8rem")
+        for w, b in zip(
+            [70, 55, 80, 45, 65, 50][:rows], [60, 45, 35, 30, 20, 15][:rows], strict=True
+        )
+    )
+    return (
+        '<div class="skel-stack">'
+        + bar("45%", "1.4rem")
+        + bar("85%")
+        + f'<div class="skel-frame skel-stack">{bar("95%")}{bar("60%")}</div>'
+        + f'<div class="skel-bars">{bars}</div></div>'
+    )
+
+
+def skeleton_columns(count: int) -> str:
+    return (
+        f'<div class="skel-grid" style="grid-template-columns:repeat({count},1fr)">'
+        + "".join(skeleton_reading() for _ in range(count))
+        + "</div>"
+    )
+
+
+def skeleton_verdict() -> str:
+    return (
+        f'<div class="skel-frame skel-stack">{bar("28%", "2.4rem")}{bar("52%")}'
+        f'{bar("100%", "2.25rem")}</div>'
+    )
+
+
+def skeleton_evidence() -> str:
+    column = (
+        '<div class="skel-stack">'
+        + bar("55%", "1.1rem")
+        + "".join(bar(f"{w}%") for w in (95, 80, 90, 70, 85))
+        + "</div>"
+    )
+    return f'<div class="skel-grid" style="grid-template-columns:1fr 1fr">{column}{column}</div>'
+
+
+def skeleton(html_: str) -> None:
+    st.html(f'<div role="status" aria-busy="true" aria-label="Loading">{html_}</div>')
+
+
+def skeleton_page() -> str:
+    """The whole first screen, while the engine and the models load for the first time."""
+    controls = (
+        '<div style="display:grid;grid-template-columns:6.4fr 3.6fr;gap:1rem">'
+        f'<div class="skel-stack">{bar("12%", "0.9rem")}{bar("100%", "7.4rem")}'
+        f'{bar("55%", "0.9rem")}</div>'
+        f'<div class="skel-stack">{bar("25%", "0.9rem")}{bar("100%", "2.6rem")}'
+        f'{bar("20%", "0.9rem")}{bar("100%", "2.6rem")}{bar("100%", "2.6rem")}</div></div>'
+    )
+    return controls + '<div style="height:2rem"></div>' + skeleton_verdict()
+
+
+@st.cache_resource
+def warmed() -> set:
+    """What this app process has already loaded or computed, so a skeleton shows only while
+    something is slow (a model's first load, a claim's first explanation)."""
+    return set()
+
+
 # --------------------------------------------------------------------------- check panels
 
 
@@ -838,7 +924,13 @@ def check_view(models: dict[str, Path]) -> None:
     use_llm = st.session_state["use_llm"]
     auto = st.session_state.pop("auto_check", False)
     if model_dir and claim.strip() and (pressed or auto):
+        slot = st.empty()
+        with slot.container():
+            st.space("small")
+            skeleton(skeleton_verdict() + skeleton_columns(2) + skeleton_evidence())
         st.session_state["result"] = check(model_dir, claim, use_llm)
+        st.session_state["result"]["readings"] = readings_of(model_dir, claim, models)
+        slot.empty()
     result = st.session_state["result"]
     if result and (
         result["claim"] != claim or result["model"] != model_dir or result["use_llm"] != use_llm
@@ -849,7 +941,7 @@ def check_view(models: dict[str, Path]) -> None:
     if result:
         rungs = prediction_rungs(result["pred"])
     elif model_dir:
-        rungs = ladder_rungs(classifier(model_dir).info.labels)
+        rungs = ladder_rungs(tuple(get_dataset(dataset_of(model_dir)).labels))
     else:
         rungs = ladder_rungs(("fake", "mixture", "real"))
         rungs["name"] = ["Likely false", "Mixed", "Likely true"]
@@ -863,20 +955,27 @@ def check_view(models: dict[str, Path]) -> None:
 
     st.space("medium")
     st.subheader("Why", anchor=False)
-    pair = counterpart(model_dir, models)
-    readings = [(model_dir, result["pred"], result["evidence"])]
-    if pair:
-        readings.append((pair, *score(pair, claim)))
-    readings.sort(key=lambda r: ladder_rank(r[0]))  # the ladder reads left to right
-    whys = [why_of(m, claim, evidence) for m, _, evidence in readings]
-    for column, (m, pred, _), why in zip(
-        st.columns(len(readings), gap="large"), readings, whys, strict=True
+    readings = result.get("readings") or readings_of(model_dir, claim, models)
+    whys = [why for _, _, why in readings]
+    for column, (m, pred, why) in zip(
+        st.columns(len(readings), gap="large"), readings, strict=True
     ):
         with column:
             why_column(m, pred, why, push_range(whys))
 
     st.space("medium")
     evidence_section(result, classifier(model_dir))
+
+
+def readings_of(model_dir: str, claim: str, models: dict[str, Path]) -> list:
+    """(model, prediction, explanation) for the checked model and its counterpart, bottom of
+    the ladder first: everything the Why section draws, computed while the skeleton shows."""
+    readings = [(model_dir, *score(model_dir, claim))]
+    pair = counterpart(model_dir, models)
+    if pair:
+        readings.append((pair, *score(pair, claim)))
+    readings.sort(key=lambda r: ladder_rank(r[0]))  # the ladder reads left to right
+    return [(m, pred, why_of(m, claim, evidence)) for m, pred, evidence in readings]
 
 
 def compare_defaults(choices: list[str]) -> list[str]:
@@ -912,8 +1011,13 @@ def compare_view(models: dict[str, Path]) -> None:
         return
 
     chosen = sorted(chosen, key=lambda m: (ladder_rank(m), choices.index(m)))
+    slot = st.empty()
+    if any((m, claim) not in warmed() for m in chosen):
+        with slot.container():
+            skeleton(skeleton_columns(len(chosen)))
     results = {m: score(m, claim) for m in chosen}
     whys = {m: why_of(m, claim, evidence) for m, (_, evidence) in results.items()}
+    slot.empty()
     scale = push_range(list(whys.values()), top=5)
     st.space("small")
     for column, (model_dir, (pred, _)) in zip(
@@ -976,6 +1080,7 @@ def reuters_share() -> dict[str, float] | None:
 def shortcut_reading(model_dir: str, text: str) -> None:
     """One ISOT model's reading of the article; a baseline also shows the words it leaned on."""
     pred, _ = score(model_dir, text)
+    warmed().add((model_dir, text))
     st.markdown(f"#### {model_label(model_dir)}")
     st.markdown(verdict_sentence(pred))
     show_ladder(prediction_rungs(pred))
@@ -1039,6 +1144,15 @@ def shortcut_view(models: dict[str, Path]) -> None:
     }
     titles = {"raw": "Trained on raw text", "clean": "Trained on cleaned text"}
     st.space("small")
+    slot = st.empty()
+    if any((m, text) not in warmed() for m in picks.values()):
+        with slot.container():
+            skeleton(skeleton_columns(2))
+        for m in picks.values():  # load and score while the skeleton shows
+            score(m, text)
+            if is_baseline(m):
+                why_of(m, text, None)
+    slot.empty()
     for column, variant in zip(st.columns(2, gap="large"), ("raw", "clean"), strict=True):
         with column:
             st.subheader(titles[variant], anchor=False)
@@ -1257,8 +1371,17 @@ def main() -> None:
         initial_sidebar_state="collapsed",
     )
     st.html(STYLE)
+    global serve
+    boot = st.empty()
+    if "factcheck.serve" not in sys.modules:  # the first run in this process
+        with boot.container():
+            st.title("Fact-Check Lab", anchor=False)
+            st.divider()
+            skeleton(skeleton_page())
+    serve = importlib.import_module("factcheck.serve")
     init_state()
     models = find_models(include_llm=st.session_state["use_llm"])
+    boot.empty()
     has_isot = any(dataset_of(m) == "isot" for m in models)
     views = [v for v in VIEWS if v != "shortcut" or has_isot]
     if st.session_state["view"] not in views:
