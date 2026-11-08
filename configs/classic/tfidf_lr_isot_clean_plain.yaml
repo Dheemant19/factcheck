@@ -1,0 +1,15 @@
+# T59 style-stripped probe (owner M1): tfidf_lr_isot_clean trained on the text with its surface style
+# removed (factcheck/style.py), so the score drop is what the model got from style. Seed 42.
+run:
+  name: tfidf_lr_isot_clean_plain
+  seed: 42
+data:
+  dataset: isot
+  variant: clean
+model:
+  family: classic
+  name: tfidf
+  method: tfidf_lr
+  char_ngrams: null
+features:
+  strip_style: true

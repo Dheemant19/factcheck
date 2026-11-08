@@ -1,0 +1,14 @@
+# T59 style-stripped probe (owner M1): tfidf_lr_liar trained on the text with its surface style
+# removed (factcheck/style.py), so the score drop is what the model got from style. Seed 42.
+run:
+  name: tfidf_lr_liar_plain
+  seed: 42
+data:
+  dataset: liar
+  variant: raw
+model:
+  family: classic
+  name: tfidf
+  method: tfidf_lr
+features:
+  strip_style: true
