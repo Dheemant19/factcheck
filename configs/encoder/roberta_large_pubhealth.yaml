@@ -1,6 +1,8 @@
 # T19 large encoder (E1): FacebookAI/roberta-large on pubhealth.
 # Large-encoder settings from plan Section 10: learning rate 1e-5,
 # effective batch 16, up to 3 epochs; the rest are the defaults in factcheck/models/encoder.py.
+# T39: 10% warmup instead of 6%, the fix that stopped roberta_large_liar collapsing to one
+# class; seed 13 scored 0.358 with 6%. All 3 seeds re-run with it, so they share one setting.
 run:
   name: roberta_large_pubhealth
   seed: 42
@@ -16,3 +18,4 @@ train:
   batch_size: 8
   grad_accum: 2  # effective batch 16 at 384 to 512 tokens
   epochs: 3
+  warmup_ratio: 0.1

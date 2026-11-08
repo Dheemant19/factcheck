@@ -1,0 +1,15 @@
+# T38 Climate-FEVER zero-shot (E8, owner M1): Qwen3-8B (thinking off) on climate_fever (test
+# split only), the claim alone with no evidence: what the model knows, next to the evidence RAG
+# run (qwen3_8b_rag_climate_fever). Label-probability scoring, deterministic. Cluster (17 GB).
+run:
+  name: qwen3_8b_zeroshot_climate_fever
+  seed: 42
+data:
+  dataset: climate_fever
+  variant: raw
+model:
+  family: llm
+  name: Qwen/Qwen3-8B
+  method: zeroshot
+train:
+  eval_batch_size: 16

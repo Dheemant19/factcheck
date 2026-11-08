@@ -68,6 +68,17 @@ PROMPTS: dict[str, dict] = {
             "not_enough_info": "the evidence does not say whether the claim is true or false.",
             "disputed": "some evidence supports the claim and some refutes it.",
         },
+        # Zero-shot has no evidence to judge (T38, owner M1): ask what the model knows,
+        # with the same four label words, so the run is scored like every other one.
+        "zero_shot": {
+            "task": "Decide, from what you know, whether this claim about climate is true or false.",
+            "labels": {
+                "supports": "the claim is true.",
+                "refutes": "the claim is false.",
+                "not_enough_info": "you cannot tell whether the claim is true or false.",
+                "disputed": "experts disagree about whether the claim is true.",
+            },
+        },
     },
 }
 
@@ -103,10 +114,12 @@ def user(content: str) -> list[dict]:
 
 
 def zero_shot_message(text: str, dataset: str) -> str:
-    """T07's user message: task, label definitions, the text, and the answer format."""
-    spec = PROMPTS[dataset]
+    """T07's user message: task, label definitions, the text, and the answer format. A dataset
+    whose labels are about evidence (Climate-FEVER) has its own no-evidence wording."""
+    spec = PROMPTS[dataset].get("zero_shot", PROMPTS[dataset])
+    definitions = "\n".join(f"- {label}: {meaning}" for label, meaning in spec["labels"].items())
     return (
-        f"{spec['task']}\n\nLabels:\n{label_definitions(dataset)}\n\nText: {text}\n\n"
+        f"{spec['task']}\n\nLabels:\n{definitions}\n\nText: {text}\n\n"
         f"{answer_instruction(dataset)}"
     )
 
