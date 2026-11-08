@@ -148,7 +148,9 @@ h3 { font-weight: 700 !important; }
 .pushes .row { display: grid; grid-template-columns: minmax(6rem, 11rem) 1fr 3.6rem;
   align-items: center; column-gap: 0.9rem; padding: 0.22rem 0; }
 .pushes .key { color: #52525b; font-size: 0.85rem; padding-bottom: 0.35rem; }
-.pushes .key .ends { display: flex; justify-content: space-between; }
+.pushes .key .ends { grid-column: 2 / 4; display: flex; justify-content: space-between;
+  white-space: nowrap; gap: 0.6rem; }
+[data-testid="stElementToolbar"] { display: none; }
 .pushes .word { text-align: right; overflow: hidden; text-overflow: ellipsis;
   white-space: nowrap; }
 .pushes .strong .word { font-weight: 700; }
@@ -160,6 +162,9 @@ h3 { font-weight: 700 !important; }
 .pushes .value { font-family: 'IBM Plex Mono', monospace; font-size: 0.88rem;
   text-align: right; font-variant-numeric: tabular-nums; }
 .source { color: #52525b; font-size: 0.88rem; }
+/* The chosen-models row scrolls sideways; show its scrollbar as a thin pill under the chips. */
+[data-testid="stMultiSelectTagsContainer"] { scrollbar-width: thin !important;
+  scrollbar-color: #8fa3bd transparent; padding-bottom: 3px; }
 </style>
 """
 
@@ -436,11 +441,12 @@ def ladder_rungs(
 def ladder_chart(rungs: pd.DataFrame, height: int = 36, names: str = "all") -> alt.LayerChart:
     """A thin row of rungs from false to true, each reading 'name  probability'.
 
-    ``names="lit"`` names only the lit rung (the others show their probability), for narrow
-    ladders with many labels; with three labels or fewer every rung is named anyway.
+    ``names="lit"`` is for narrow ladders: with more than three labels a name does not fit
+    inside a rung, so every rung shows its probability only (the lit one is outlined, and the
+    sentence above the ladder names it); with three labels or fewer every rung is named.
     """
     every = names != "lit" or len(rungs) <= 3
-    named = pd.Series(True, index=rungs.index) if every else rungs["lit"]
+    named = pd.Series(every, index=rungs.index)
     rungs = rungs.assign(
         text=[
             f"{name}  {pct}".strip() if show else pct
@@ -624,13 +630,13 @@ def highlighted(why: serve.Explanation, top: int = 8) -> str:
     out = []
     for i, (word, value) in enumerate(words):
         core = word.strip()
-        trail = word[len(word.rstrip()) :]
+        lead, trail = word[: len(word) - len(word.lstrip())], word[len(word.rstrip()) :]
         text = escape_markdown(core)
         if i in tinted:
             text = f":{'red' if value > 0 else 'green'}-background[{text}]"
             if i in strongest:
                 text = f"**{text}**"
-        out.append(f"{text}{trail}")
+        out.append(f"{lead}{text}{trail}")
     return "".join(out)
 
 
@@ -660,12 +666,10 @@ def push_bars(
     low, high = scale or push_range([why], top)
     span = (high - low) or 1.0
     zero = -low / span * 100
-    ends = ("<span>towards true</span>" if low < 0 else "<span></span>") + (
-        "<span>towards false</span>" if high > 0 else "<span></span>"
+    ends = ("<span>&larr; true</span>" if low < 0 else "<span></span>") + (
+        "<span>false &rarr;</span>" if high > 0 else "<span></span>"
     )
-    rows = [
-        f'<div class="row key"><span></span><span class="ends">{ends}</span><span></span></div>'
-    ]
+    rows = [f'<div class="row key"><span></span><span class="ends">{ends}</span></div>']
     for rank, (word, value) in enumerate(pushes):
         width = abs(value) / span * 100
         left = zero if value > 0 else zero - width
