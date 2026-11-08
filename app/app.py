@@ -66,6 +66,10 @@ DATASETS = {
     "isot": "ISOT",
     "climate_fever": "Climate-FEVER",
 }
+STYLES = {  # the text a model was trained on (T59)
+    "written": "As written",
+    "stripped": "Style stripped",
+}
 DATASET_CHOICES = {  # what each dataset's models were trained to read
     "covid": "COVID-19 social media posts (COVID)",
     "liar": "Political statements (LIAR)",
@@ -199,6 +203,11 @@ def variant_of(model_dir: str) -> str:
     return run_config(model_dir)["data"].get("variant", "raw")
 
 
+def style_of(model_dir: str) -> str:
+    """'stripped' for a run trained on style-stripped text (T59), else 'written'."""
+    return "stripped" if serve.strips_style(run_config(model_dir)) else "written"
+
+
 def is_baseline(model_dir: str) -> bool:
     return run_config(model_dir)["model"].get("family") == "classic"
 
@@ -263,7 +272,11 @@ def counterpart(model_dir: str, models: dict[str, Path]) -> str | None:
     """The model to read the same claim next to this one: the TF-IDF baseline of the same
     dataset for a transformer, the best transformer of that dataset for the baseline."""
     dataset, variant = dataset_of(model_dir), variant_of(model_dir)
-    same = [m for m in models if m != model_dir and dataset_of(m) == dataset]
+    same = [
+        m
+        for m in models
+        if m != model_dir and dataset_of(m) == dataset and style_of(m) == style_of(model_dir)
+    ]
     if is_baseline(model_dir):
         pool = [m for m in same if not is_baseline(m) and not serve.is_qlora(m)]
     else:
@@ -576,6 +589,27 @@ def dataset_picker(where: str, models: dict[str, Path]) -> str | None:
     return chosen
 
 
+def style_picker(where: str, models: list[str]) -> list[str]:
+    """The dataset's models for the chosen text style. The switch shows only when the dataset
+    has models trained both on the text as written and on the style-stripped text (T59)."""
+    present = [s for s in STYLES if any(style_of(m) == s for m in models)]
+    if len(present) < 2:
+        return models
+    st.session_state.setdefault("text_style", "written")
+    key = f"style_{where}"
+    st.session_state.setdefault(key, st.session_state["text_style"])
+    chosen = st.segmented_control(
+        "Text",
+        present,
+        format_func=STYLES.get,
+        required=True,
+        key=key,
+        on_change=lambda: st.session_state.update(text_style=st.session_state[key]),
+    )
+    st.session_state["text_style"] = chosen
+    return [m for m in models if style_of(m) == chosen]
+
+
 def default_model(choices: list[str]) -> str:
     """The best transformer of the dataset (choices are ordered up the ladder, best first)."""
     encoders = [m for m in choices if ladder_rank(m) == 1]
@@ -782,7 +816,7 @@ def check_view(models: dict[str, Path]) -> None:
         example_links("check")
     with col_side:
         dataset = dataset_picker("check", models)
-        choices = [m for m in models if dataset_of(m) == dataset]
+        choices = style_picker("check", [m for m in models if dataset_of(m) == dataset])
         model_dir = st.selectbox(
             "Model",
             choices,
@@ -790,7 +824,7 @@ def check_view(models: dict[str, Path]) -> None:
             format_func=model_name,
             placeholder="No trained models yet",
             disabled=not choices,
-            key=f"check_model_{dataset}",
+            key=f"check_model_{dataset}_{st.session_state.get('text_style', 'written')}",
         )
         llm_switch()
         pressed = st.button(
@@ -864,14 +898,14 @@ def compare_view(models: dict[str, Path]) -> None:
         return
     with col_side:
         dataset = dataset_picker("compare", models)
-        choices = [m for m in models if dataset_of(m) == dataset]
+        choices = style_picker("compare", [m for m in models if dataset_of(m) == dataset])
         chosen = st.multiselect(
             "Models",
             choices,
             default=compare_defaults(choices),
             format_func=model_name,
             max_selections=4,
-            key=f"compare_models_{dataset}",
+            key=f"compare_models_{dataset}_{st.session_state.get('text_style', 'written')}",
         )
     if not (claim.strip() and chosen):
         st.markdown("Choose up to four models to read the claim side by side.")
@@ -989,7 +1023,7 @@ def shortcut_view(models: dict[str, Path]) -> None:
 
     picks: dict[tuple[str, bool], str] = {}
     for m in models:  # the best model per variant and kind (models are ordered best first)
-        if dataset_of(m) == "isot" and not serve.is_qlora(m):
+        if dataset_of(m) == "isot" and not serve.is_qlora(m) and style_of(m) == "written":
             picks.setdefault((variant_of(m), is_baseline(m)), m)
     commands = {
         ("raw", False): "python -m factcheck.train --config configs/encoder/roberta_isot_raw.yaml",

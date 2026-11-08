@@ -1,0 +1,19 @@
+# T59 style-stripped COVID (owner M1): covid_twitter_bert_covid trained on the text with its
+# surface style removed (factcheck/style.py); same settings and seeds (13 42 2026). Large: run
+# on the cluster.
+run:
+  name: covid_twitter_bert_covid_plain
+  seed: 42
+data:
+  dataset: covid
+  variant: raw
+model:
+  family: encoder
+  name: digitalepidemiologylab/covid-twitter-bert-v2
+  method: full
+train:
+  learning_rate: 1.0e-5
+  batch_size: 16
+  epochs: 3
+features:
+  strip_style: true

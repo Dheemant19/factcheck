@@ -85,6 +85,20 @@ def is_servable(model_dir: str | Path) -> bool:
     return not (run_config(model_dir).get("features") or {}).get("use_metadata")
 
 
+def strips_style(cfg: dict) -> bool:
+    """Whether the run was trained on style-stripped text (``features.strip_style``, T59)."""
+    return bool((cfg.get("features") or {}).get("strip_style"))
+
+
+def prepare(texts: list[str], strip: bool) -> list[str]:
+    """The texts as the run saw them in training: style-stripped for ``strip_style`` runs."""
+    if not strip:
+        return list(texts)
+    from factcheck.style import strip_style
+
+    return [strip_style(t) for t in texts]
+
+
 def is_baseline(model_dir: str | Path) -> bool:
     """A TF-IDF + logistic regression run (T54). The other traditional baselines (Naive Bayes,
     SVM, GloVe) are left out of the app: logistic regression is the one whose weights read as
@@ -127,6 +141,7 @@ class Classifier:
         self.max_length = int(data.get("max_length") or self.info.max_length)
         self.head_tokens = data.get("head_tokens")
         self.uses_evidence = bool((self.cfg.get("features") or {}).get("use_evidence"))
+        self.strips_style = strips_style(self.cfg)
         self.qlora = is_qlora(self.model_dir)
         device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         if self.qlora:
@@ -167,6 +182,7 @@ class Classifier:
         self, texts: list[str], evidence: list[str] | None = None, batch_size: int = 32
     ) -> np.ndarray:
         """Label probabilities, one row per text (all texts share the same evidence)."""
+        texts = prepare(texts, self.strips_style)
         out = []
         for start in range(0, len(texts), batch_size):
             ids = self.encode(texts[start : start + batch_size], evidence)
@@ -211,6 +227,7 @@ class Baseline:
         self.cfg = run_config(self.model_dir)
         self.info: DatasetInfo = get_dataset(self.cfg["data"]["dataset"])
         self.variant = self.cfg["data"].get("variant", "raw")
+        self.strips_style = strips_style(self.cfg)
         self.predictor = ClassicPredictor.load(self.model_dir / "model.joblib")
         clf = self.predictor.classifier
         if list(clf.classes_) != list(range(self.info.num_labels)):
@@ -231,7 +248,7 @@ class Baseline:
         return self.cfg["run"]["name"]
 
     def proba(self, texts: list[str], evidence: list[str] | None = None) -> np.ndarray:
-        return self.predictor.predict_proba(texts)
+        return self.predictor.predict_proba(prepare(texts, self.strips_style))
 
     def predict(self, claim: str, evidence: list[str] | None = None) -> Prediction:
         start = time.perf_counter()
@@ -404,7 +421,7 @@ def explain_linear(base: Baseline, claim: str) -> Explanation:
     pairs it is in; ``features`` keeps the pairs whole for the ranked list.
     """
     start = time.perf_counter()
-    x = base.predictor.features.transform([claim]).tocsr()
+    x = base.predictor.features.transform(prepare([claim], base.strips_style)).tocsr()
     push = {
         int(j): float(v) * float(base.direction[j]) for j, v in zip(x.indices, x.data, strict=True)
     }

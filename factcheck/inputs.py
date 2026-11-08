@@ -7,8 +7,10 @@ A run config can switch two extra-effort features on (plan Section 8.5, ablation
       use_evidence: false   # PUBHEALTH and Climate-FEVER only: claim + top-k evidence sentences
       evidence_k: 5
       evidence_source: own  # own (the claim's article / given sentences) or pool (Climate-FEVER)
+      strip_style: false    # any dataset: links, @mentions, hashtags, emoji, "!", capitals removed
+                            # from the text the model reads (``factcheck.style``, T59, owner M1)
 
-Both are off by default. ``load_inputs(cfg)`` is ``load_splits`` plus these switches, and every
+All are off by default. ``load_inputs(cfg)`` is ``load_splits`` plus these switches, and every
 model family calls it, so the Bi-LSTM, the encoders and the LLM see identical inputs:
 
     text        the first input: the claim, with the metadata prefix when use_metadata is on
@@ -31,6 +33,7 @@ FEATURE_DEFAULTS = {
     "use_evidence": False,
     "evidence_k": 5,
     "evidence_source": "own",
+    "strip_style": False,
 }
 METADATA_DATASETS = {"liar"}
 EVIDENCE_DATASETS = {"pubhealth", "climate_fever"}
@@ -80,6 +83,10 @@ def build_inputs(df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
     """One split with the config's switches applied (a copy; ``df`` is not changed)."""
     feats = features(cfg)
     df = df.assign(claim=df["text"])
+    if feats["strip_style"]:
+        from factcheck.style import strip_style
+
+        df["text"] = df["text"].map(strip_style)
     if feats["use_metadata"] and len(df):
         prefixes = df.apply(metadata_prefix, axis=1)
         df["text"] = prefixes + " " + df["claim"]
