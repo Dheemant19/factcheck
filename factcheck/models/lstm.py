@@ -231,7 +231,9 @@ def gradient_by_distance(
     return out
 
 
-def collate(batch: Sequence[tuple[list[int], int]]):
+def collate(
+    batch: Sequence[tuple[list[int], int]],
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """(ids, label) pairs -> padded ids, lengths, labels."""
     seqs, ys = zip(*batch, strict=True)
     return (
@@ -241,7 +243,9 @@ def collate(batch: Sequence[tuple[list[int], int]]):
     )
 
 
-def make_loader(ids: list[list[int]], labels: Sequence[int], batch_size: int, shuffle: bool):
+def make_loader(
+    ids: list[list[int]], labels: Sequence[int], batch_size: int, shuffle: bool
+) -> DataLoader:
     return DataLoader(
         list(zip(ids, labels, strict=True)),
         batch_size=batch_size,
