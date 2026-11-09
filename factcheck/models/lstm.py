@@ -8,6 +8,14 @@ validation macro-F1 with the best epoch kept.
 
     python -m factcheck.train --config configs/lstm/lstm_liar.yaml
 
+T55 adds the other recurrent cells next to it: ``model.cell`` is ``lstm`` (default), ``gru``
+or ``rnn`` (plain tanh RNN), ``model.bidirectional: false`` reads left to right only, and
+``train.grad_clip: null`` turns clipping off. Every run logs gradient sizes in
+``train_summary.json``: per epoch, the total gradient norm before clipping (mean, median, max)
+and the share of steps that clipping cut, and, on a fixed batch of training claims before
+training and after each epoch, the mean gradient of the loss at each input word by its
+distance from the last word (``grad_by_distance``), which shows vanishing gradients directly.
+
 Each run writes, under ``outputs/<name>/seed<N>/``:
 
     config.yaml              the full config used (defaults filled in)
@@ -44,6 +52,8 @@ from factcheck.inputs import load_inputs, single_text
 from factcheck.paths import CACHE_DIR, OUTPUT_DIR, RAW_DIR
 
 PAD, UNK = "<pad>", "<unk>"  # ids 0 and 1; both have zero vectors
+CELLS = {"lstm": nn.LSTM, "gru": nn.GRU, "rnn": nn.RNN}
+DISTANCES = (0, 1, 2, 4, 8, 16, 32, 64)  # words from the last one, for grad_by_distance
 
 # Plan Section 10, Bi-LSTM column. A run config only needs to list what it changes.
 DEFAULTS = {
@@ -53,6 +63,8 @@ DEFAULTS = {
         "hidden_size": 256,  # about 2.7M trainable parameters with 2 layers
         "num_layers": 2,
         "dropout": 0.3,
+        "cell": "lstm",  # T55: lstm, gru or rnn
+        "bidirectional": True,
     },
     "train": {
         "learning_rate": 1.0e-3,
@@ -60,7 +72,8 @@ DEFAULTS = {
         "eval_batch_size": 256,
         "epochs": 15,
         "early_stopping_patience": 3,
-        "grad_clip": 1.0,
+        "grad_clip": 1.0,  # null: no clipping (T55)
+        "grad_probe_size": 256,  # training claims in the fixed batch for grad_by_distance
         "min_freq": 1,  # a train word needs this many occurrences (and a GloVe vector) to get an id
     },
 }
@@ -137,8 +150,12 @@ def vocab_and_embeddings(
 # Model
 
 
-class BiLSTMClassifier(nn.Module):
-    """Frozen embeddings -> 2-layer Bi-LSTM -> [last forward state; last backward state] -> linear."""
+class RecurrentClassifier(nn.Module):
+    """Frozen embeddings -> 2-layer recurrent net -> final state(s) of the top layer -> linear.
+
+    The defaults are the T05 Bi-LSTM ([last forward state; last backward state]); T55 swaps
+    in a GRU or a plain RNN and can read one direction only (the last forward state).
+    """
 
     def __init__(
         self,
@@ -147,41 +164,84 @@ class BiLSTMClassifier(nn.Module):
         hidden_size: int = 256,
         num_layers: int = 2,
         dropout: float = 0.3,
+        cell: str = "lstm",
+        bidirectional: bool = True,
     ):
         super().__init__()
+        if cell not in CELLS:
+            raise ValueError(f"model.cell must be one of {sorted(CELLS)}, not {cell!r}")
+        self.bidirectional = bidirectional
         self.embedding = nn.Embedding.from_pretrained(embeddings, freeze=True, padding_idx=0)
-        self.lstm = nn.LSTM(
+        self.lstm = CELLS[cell](  # named lstm so T05 checkpoints keep loading
             embeddings.shape[1],
             hidden_size,
             num_layers=num_layers,
-            bidirectional=True,
+            bidirectional=bidirectional,
             batch_first=True,
             dropout=dropout if num_layers > 1 else 0.0,
         )
         self.dropout = nn.Dropout(dropout)
-        self.classifier = nn.Linear(2 * hidden_size, num_labels)
+        self.classifier = nn.Linear((2 if bidirectional else 1) * hidden_size, num_labels)
 
     def forward(self, input_ids: torch.Tensor, lengths: torch.Tensor) -> torch.Tensor:
-        x = self.dropout(self.embedding(input_ids))
-        packed = pack_padded_sequence(x, lengths.cpu(), batch_first=True, enforce_sorted=False)
-        _, (h, _) = self.lstm(packed)  # h: (num_layers * 2, batch, hidden)
-        final = torch.cat([h[-2], h[-1]], dim=1)  # top layer, forward and backward
+        return self.classify(self.embedding(input_ids), lengths)
+
+    def classify(self, x: torch.Tensor, lengths: torch.Tensor) -> torch.Tensor:
+        """Logits from embedded inputs (batch, time, dim); split out for ``gradient_by_distance``."""
+        packed = pack_padded_sequence(
+            self.dropout(x), lengths.cpu(), batch_first=True, enforce_sorted=False
+        )
+        _, h = self.lstm(packed)
+        h = (
+            h[0] if isinstance(h, tuple) else h
+        )  # LSTM returns (h, c); h: (layers * dirs, batch, hidden)
+        final = torch.cat([h[-2], h[-1]], dim=1) if self.bidirectional else h[-1]
         return self.classifier(self.dropout(final))
+
+
+BiLSTMClassifier = RecurrentClassifier  # the T05 name, still used by the tests and SHAP
 
 
 def count_trainable(model: nn.Module) -> int:
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 
-def make_loader(ids: list[list[int]], labels: Sequence[int], batch_size: int, shuffle: bool):
-    def collate(batch):
-        seqs, ys = zip(*batch, strict=True)
-        return (
-            pad_sequence([torch.tensor(s) for s in seqs], batch_first=True, padding_value=0),
-            torch.tensor([len(s) for s in seqs]),
-            torch.tensor(ys),
-        )
+def gradient_by_distance(
+    model: RecurrentClassifier, x: torch.Tensor, lengths: torch.Tensor, y: torch.Tensor
+) -> dict[str, float]:
+    """Mean size of the loss gradient at each input word, by its distance from the last word.
 
+    The classifier reads the final state, so in a plain RNN the gradient reaching early words
+    shrinks fast with distance (vanishing gradients); the GRU and LSTM gates keep it larger.
+    Per-claim loss (summed, not averaged), no dropout, and no cuDNN, whose RNN backward pass
+    only runs in training mode. Parameter gradients are not touched.
+    """
+    model.eval()
+    with torch.backends.cudnn.flags(enabled=False):
+        emb = model.embedding(x).detach().requires_grad_()
+        loss = nn.functional.cross_entropy(model.classify(emb, lengths), y, reduction="sum")
+        (grad,) = torch.autograd.grad(loss, emb)
+    norms = grad.norm(dim=2)  # (batch, time)
+    pos_last = lengths.to(norms.device) - 1
+    out = {}
+    for d in DISTANCES:
+        rows = (pos_last >= d).nonzero().squeeze(1)
+        if len(rows):
+            out[str(d)] = norms[rows, pos_last[rows] - d].mean().item()
+    return out
+
+
+def collate(batch: Sequence[tuple[list[int], int]]):
+    """(ids, label) pairs -> padded ids, lengths, labels."""
+    seqs, ys = zip(*batch, strict=True)
+    return (
+        pad_sequence([torch.tensor(s) for s in seqs], batch_first=True, padding_value=0),
+        torch.tensor([len(s) for s in seqs]),
+        torch.tensor(ys),
+    )
+
+
+def make_loader(ids: list[list[int]], labels: Sequence[int], batch_size: int, shuffle: bool):
     return DataLoader(
         list(zip(ids, labels, strict=True)),
         batch_size=batch_size,
@@ -206,8 +266,9 @@ def with_defaults(cfg: dict) -> dict:
     cfg = copy.deepcopy(cfg)
     for section, defaults in DEFAULTS.items():
         cfg[section] = {**defaults, **(cfg.get(section) or {})}
-    for key in ("learning_rate", "grad_clip"):
-        cfg["train"][key] = float(cfg["train"][key])
+    cfg["train"]["learning_rate"] = float(cfg["train"]["learning_rate"])
+    if cfg["train"]["grad_clip"] is not None:
+        cfg["train"]["grad_clip"] = float(cfg["train"]["grad_clip"])
     cfg["model"]["dropout"] = float(cfg["model"]["dropout"])
     return cfg
 
@@ -251,15 +312,35 @@ def train_lstm(cfg: dict) -> dict:
     train_tokens = [tok for t in splits["train"]["text"] for tok in tokenize(t)]
     oov = sum(tok not in word2id for tok in train_tokens) / max(len(train_tokens), 1)
 
-    model = BiLSTMClassifier(
-        embeddings, info.num_labels, mcfg["hidden_size"], mcfg["num_layers"], mcfg["dropout"]
+    model = RecurrentClassifier(
+        embeddings,
+        info.num_labels,
+        mcfg["hidden_size"],
+        mcfg["num_layers"],
+        mcfg["dropout"],
+        mcfg["cell"],
+        mcfg["bidirectional"],
     ).to(device)
     optimizer = torch.optim.Adam(
         [p for p in model.parameters() if p.requires_grad], lr=tcfg["learning_rate"]
     )
     loss_fn = nn.CrossEntropyLoss()
+    clip = tcfg["grad_clip"]
+    # Fixed batch: the first training claims. Not through a DataLoader, whose iterator draws a
+    # seed from the global generator and would change the shuffle order of every later epoch.
+    first = splits["train"].iloc[: tcfg["grad_probe_size"]]
+    probe_x, probe_lengths, probe_y = collate(
+        [
+            (encode(t, word2id, max_length), y)
+            for t, y in zip(first["text"], first["label"], strict=True)
+        ]
+    )
+    probe = (probe_x.to(device), probe_lengths, probe_y.to(device))
+    grad_by_distance_init = gradient_by_distance(model, *probe)
     print(
-        f"{run['name']} seed {seed}: {info.name} ({info.num_labels} labels), vocab {len(vocab):,} "
+        f"{run['name']} seed {seed}: {mcfg['cell']}"
+        f"{' bidirectional' if mcfg['bidirectional'] else ''}, grad clip {clip}; "
+        f"{info.name} ({info.num_labels} labels), vocab {len(vocab):,} "
         f"({oov:.1%} of train tokens unknown), {count_trainable(model):,} trainable parameters, {device}"
     )
 
@@ -270,20 +351,37 @@ def train_lstm(cfg: dict) -> dict:
     val_labels = splits["validation"]["label"].to_numpy()
     for epoch in range(1, tcfg["epochs"] + 1):
         model.train()
-        total_loss, n = 0.0, 0
+        total_loss, n, grad_norms = 0.0, 0, []
         for x, lengths, y in loaders["train"]:
             x, y = x.to(device), y.to(device)
             optimizer.zero_grad()
             loss = loss_fn(model(x, lengths), y)
             loss.backward()
-            nn.utils.clip_grad_norm_(model.parameters(), tcfg["grad_clip"])
+            # the norm before clipping; with clipping off, an infinite limit only measures it
+            norm = nn.utils.clip_grad_norm_(model.parameters(), clip or float("inf"))
+            grad_norms.append(norm.item())
             optimizer.step()
             total_loss += loss.item() * len(y)
             n += len(y)
         val_pred = predict_proba(model, loaders["validation"], device).argmax(axis=1)
         val_f1 = f1_score(val_labels, val_pred, average="macro")
-        history.append({"epoch": epoch, "train_loss": total_loss / n, "val_macro_f1": val_f1})
-        print(f"  epoch {epoch:2d}  train loss {total_loss / n:.4f}  val macro-F1 {val_f1:.4f}")
+        grad_norms = np.asarray(grad_norms)
+        history.append(
+            {
+                "epoch": epoch,
+                "train_loss": total_loss / n,
+                "val_macro_f1": val_f1,
+                "grad_norm_mean": float(grad_norms.mean()),
+                "grad_norm_median": float(np.median(grad_norms)),
+                "grad_norm_max": float(grad_norms.max()),
+                "clipped_fraction": float((grad_norms > clip).mean()) if clip else 0.0,
+                "grad_by_distance": gradient_by_distance(model, *probe),
+            }
+        )
+        print(
+            f"  epoch {epoch:2d}  train loss {total_loss / n:.4f}  val macro-F1 {val_f1:.4f}  "
+            f"grad norm {grad_norms.mean():.3g} (max {grad_norms.max():.3g})"
+        )
         if val_f1 > best_f1:
             best_f1, best_epoch, waited = val_f1, epoch, 0
             best_state = copy.deepcopy(model.state_dict())
@@ -308,6 +406,8 @@ def train_lstm(cfg: dict) -> dict:
             "hidden_size": mcfg["hidden_size"],
             "num_layers": mcfg["num_layers"],
             "dropout": mcfg["dropout"],
+            "cell": mcfg["cell"],
+            "bidirectional": mcfg["bidirectional"],
         },
         run_dir / "model" / "model.pt",
     )
@@ -323,6 +423,9 @@ def train_lstm(cfg: dict) -> dict:
         "dataset": info.name,
         "variant": data.get("variant", "raw"),
         "family": "lstm",
+        "cell": mcfg["cell"],
+        "bidirectional": mcfg["bidirectional"],
+        "grad_clip": clip,
         "best_epoch": best_epoch,
         "best_val_macro_f1": best_f1,
         "epochs_run": len(history),
@@ -335,6 +438,7 @@ def train_lstm(cfg: dict) -> dict:
         ),
         "latency_ms": latency,
         "device": torch.cuda.get_device_name(device) if device.type == "cuda" else "cpu",
+        "grad_by_distance_init": grad_by_distance_init,
         "history": history,
     }
     with open(run_dir / "train_summary.json", "w", encoding="utf-8") as f:
@@ -381,12 +485,14 @@ class LSTMPredictor:
         self.max_length: int = saved["max_length"]
         self.word2id = {w: i for i, w in enumerate(saved["vocab"])}
         self.device = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu"))
-        self.model = BiLSTMClassifier(
+        self.model = RecurrentClassifier(
             saved["state_dict"]["embedding.weight"],
             len(self.labels),
             saved["hidden_size"],
             saved["num_layers"],
             saved["dropout"],
+            saved.get("cell", "lstm"),  # T05 checkpoints predate T55
+            saved.get("bidirectional", True),
         )
         self.model.load_state_dict(saved["state_dict"])
         self.model.to(self.device).eval()
