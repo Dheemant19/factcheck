@@ -1,0 +1,19 @@
+# T55 recurrent cells on liar: plain tanh RNN without gradient clipping, one direction, next to the Bi-LSTM
+# (lstm_liar.yaml). Same settings as the Bi-LSTM otherwise (plan Section 10 defaults in
+# factcheck/models/lstm.py); gradient sizes go to train_summary.json.
+run:
+  name: rnn_noclip_liar
+  seed: 42
+data:
+  dataset: liar
+  variant: raw
+model:
+  family: lstm
+  name: rnn-glove300
+  cell: rnn
+  bidirectional: false
+train:
+  learning_rate: 1.0e-3
+  batch_size: 64
+  epochs: 15
+  grad_clip: null

@@ -13,7 +13,11 @@ on validation from the grid in `factcheck/models/classic.py`; fitting is determi
 run once (seed 42), on a CPU, in seconds to minutes. Each run also writes `top_words.csv`.
 
 `lstm/` holds the Bi-LSTM baselines (T05), one per dataset. Settings a config leaves out
-take the plan Section 10 defaults in `factcheck/models/lstm.py`.
+take the plan Section 10 defaults in `factcheck/models/lstm.py`. T55 adds the other recurrent
+cells next to them, reading one direction only (`model.cell`, `model.bidirectional: false`):
+`rnn_*` (plain tanh RNN), `rnn_noclip_*` (the same with `train.grad_clip: null`), `gru_*` and
+`unilstm_*`. Every run logs its gradient sizes in `train_summary.json`; run them all with
+`jobs/queue.sh jobs/t55_rnn.txt` and tabulate them with `python scripts/t55_gradients.py`.
 
 `encoder/` holds the base encoder baselines (T06): DistilBERT and BERT on COVID, LIAR and
 PUBHEALTH. Defaults are in `factcheck/models/encoder.py`. Add `data: {subset: 300}` for a quick
