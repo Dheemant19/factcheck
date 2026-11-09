@@ -120,6 +120,19 @@ def test_svm_grid_scores_the_calibrated_model_it_returns():
     assert f1 == pytest.approx(max(g["val_macro_f1"] for g in grid))
 
 
+def test_balanced_calibrated_svm_still_predicts_the_rare_labels():
+    rng = np.random.default_rng(0)
+    y = rng.choice(3, size=600, p=[0.7, 0.2, 0.1])
+    x = rng.normal(size=(600, 5)) + 0.8 * np.eye(3, 5)[y]
+
+    def rare_share(class_weight):
+        clf = classic.calibrated("glove_svm", {"C": 1.0, "class_weight": class_weight}, 3, x, y)
+        return (clf.predict_proba(x).argmax(axis=1) != 0).mean()
+
+    # The calibration is weighted too, so balancing survives it (plain: the majority wins).
+    assert rare_share("balanced") > 2 * rare_share(None)
+
+
 def test_sparse_join_keeps_csr():
     a = sp.csr_matrix(np.eye(2, dtype=np.float32))
     assert sp.isspmatrix_csr(classic.TfidfFeatures._join([a, a]))

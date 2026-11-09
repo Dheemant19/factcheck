@@ -53,6 +53,7 @@ from sklearn.metrics import f1_score
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import LinearSVC
+from sklearn.utils.class_weight import compute_sample_weight
 
 from factcheck.data import get_dataset
 from factcheck.data.registry import DatasetInfo
@@ -221,8 +222,7 @@ def select(method: str, tcfg: dict, x_train, y_train, x_val, y_val) -> tuple[obj
     """Fit every grid setting on train; keep the best by validation macro-F1.
 
     The SVMs are scored as the calibrated model that gets logged and saved, not as the plain
-    SVM: sigmoid calibration undoes most of the balanced class weights' shift, so the plain
-    SVM's validation score would pick a setting for a different model (T44 review).
+    SVM, so the grid picks the setting for the model it reports (T44 review).
     """
     grid, best, best_f1, best_setting = [], None, -1.0, None
     for setting in candidates(method, tcfg):
@@ -240,10 +240,18 @@ def select(method: str, tcfg: dict, x_train, y_train, x_val, y_val) -> tuple[obj
 
 
 def calibrated(method: str, setting: dict, folds: int, x_train, y_train):
-    """The chosen SVM refitted with sigmoid calibration, so it outputs probabilities (for
-    ROC-AUC and ECE). Naive Bayes and LR already do."""
-    clf = CalibratedClassifierCV(make_classifier(method, setting), method="sigmoid", cv=folds)
-    return clf.fit(x_train, y_train)
+    """An SVM with sigmoid calibration, so it outputs probabilities (for ROC-AUC and ECE).
+    Naive Bayes and LR already do.
+
+    Balanced class weights go in as sample weights, so the sigmoid fit is balanced too, like
+    LR's balanced probabilities. With ``class_weight`` on the SVM alone, the unweighted
+    sigmoid fit undoes most of the balancing and the model leans to the majority labels again.
+    """
+    balanced = setting["class_weight"] == "balanced"
+    svm = make_classifier(method, {**setting, "class_weight": None})
+    weights = compute_sample_weight("balanced", y_train) if balanced else None
+    clf = CalibratedClassifierCV(svm, method="sigmoid", cv=folds)
+    return clf.fit(x_train, y_train, sample_weight=weights)
 
 
 def class_weights_of(clf, n_labels: int) -> np.ndarray:
