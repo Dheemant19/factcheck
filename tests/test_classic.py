@@ -106,6 +106,20 @@ def test_train_end_to_end_on_a_tiny_dataset(method, tmp_path, monkeypatch):
     assert summary["trainable_params"] > 0
 
 
+def test_svm_grid_scores_the_calibrated_model_it_returns():
+    # Imbalanced, noisy three-class data, where balanced weights and calibration disagree.
+    rng = np.random.default_rng(0)
+    y = rng.choice(3, size=300, p=[0.7, 0.2, 0.1])
+    x = rng.normal(size=(300, 5)) + 0.8 * np.eye(3, 5)[y]
+    tcfg = {**classic.DEFAULTS["train"], "svm_C": [0.01, 1.0]}
+    best, setting, grid = classic.select("glove_svm", tcfg, x[:200], y[:200], x[200:], y[200:])
+
+    assert isinstance(best, classic.CalibratedClassifierCV)
+    assert best.estimator.get_params()["C"] == setting["C"]
+    f1 = classic.f1_score(y[200:], best.predict_proba(x[200:]).argmax(axis=1), average="macro")
+    assert f1 == pytest.approx(max(g["val_macro_f1"] for g in grid))
+
+
 def test_sparse_join_keeps_csr():
     a = sp.csr_matrix(np.eye(2, dtype=np.float32))
     assert sp.isspmatrix_csr(classic.TfidfFeatures._join([a, a]))

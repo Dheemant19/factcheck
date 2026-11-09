@@ -16,7 +16,7 @@ other model (``factcheck.inputs.load_inputs``).
     glove_svm    the mean of the GloVe 300-d vectors of the words -> linear SVM, calibrated
 
 The regularisation strength (and, for LR and SVM, plain vs balanced class weights) is picked
-on validation macro-F1 from a small grid; the model is fitted on the training split only and
+on validation macro-F1 from a small grid (for the SVMs, the calibrated model's); the model is fitted on the training split only and
 the test split is scored once. Fitting is deterministic, so one run (seed 42) is enough, like
 the kNN vote.
 
@@ -218,11 +218,19 @@ def scores_of(clf, x) -> np.ndarray:
 
 
 def select(method: str, tcfg: dict, x_train, y_train, x_val, y_val) -> tuple[object, dict, list]:
-    """Fit every grid setting on train; keep the best by validation macro-F1."""
+    """Fit every grid setting on train; keep the best by validation macro-F1.
+
+    The SVMs are scored as the calibrated model that gets logged and saved, not as the plain
+    SVM: sigmoid calibration undoes most of the balanced class weights' shift, so the plain
+    SVM's validation score would pick a setting for a different model (T44 review).
+    """
     grid, best, best_f1, best_setting = [], None, -1.0, None
     for setting in candidates(method, tcfg):
         start = time.perf_counter()
-        clf = make_classifier(method, setting).fit(x_train, y_train)
+        if method in ("tfidf_svm", "glove_svm"):
+            clf = calibrated(method, setting, tcfg["calibration_folds"], x_train, y_train)
+        else:
+            clf = make_classifier(method, setting).fit(x_train, y_train)
         f1 = f1_score(y_val, scores_of(clf, x_val).argmax(axis=1), average="macro")
         grid.append({**setting, "val_macro_f1": f1, "seconds": time.perf_counter() - start})
         print(f"  {setting}  val macro-F1 {f1:.4f}")
@@ -300,7 +308,9 @@ def train_classic(cfg: dict) -> dict:
     )
     final = chosen
     if method in ("tfidf_svm", "glove_svm"):
-        final = calibrated(method, setting, tcfg["calibration_folds"], x["train"], labels["train"])
+        # The calibrated SVM has no single weight row to read; top_words reads the plain SVM
+        # with the chosen setting, fitted on the whole training split.
+        chosen = make_classifier(method, setting).fit(x["train"], labels["train"])
     train_seconds = time.perf_counter() - start
     x["test"] = features.transform(texts["test"])
 
