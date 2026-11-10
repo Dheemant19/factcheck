@@ -197,12 +197,13 @@ h3 { font-weight: 700 !important; }
 
 
 @st.cache_data(ttl=60)
-def logged_test_f1() -> dict[tuple[str, int], float]:
-    """Test macro-F1 of every logged (run, seed), read from results/runs.csv. Used only to
-    pick each run's best seed and the default model, never shown next to a verdict."""
+def logged_val_f1() -> dict[tuple[str, int], float]:
+    """Validation macro-F1 of every logged (run, seed), read from results/runs.csv. Used only
+    to pick each run's best seed and the default model, never shown next to a verdict. Not
+    the test score, so the test set never picks the model the app (and T40) measures."""
     runs = load_runs()
-    test = runs[(runs["split"] == "test") & runs["subset"].isna()]
-    return {(r.run_name, int(r.seed)): float(r.macro_f1) for r in test.itertuples()}
+    val = runs[(runs["split"] == "validation") & runs["subset"].isna()]
+    return {(r.run_name, int(r.seed)): float(r.macro_f1) for r in val.itertuples()}
 
 
 @st.cache_data(max_entries=128)
@@ -210,9 +211,9 @@ def run_config(model_dir: str) -> dict:
     return serve.run_config(model_dir)
 
 
-def test_f1(model_dir: str) -> float | None:
+def val_f1(model_dir: str) -> float | None:
     run = run_config(model_dir)["run"]
-    return logged_test_f1().get((run["name"], int(run["seed"])))
+    return logged_val_f1().get((run["name"], int(run["seed"])))
 
 
 def dataset_of(model_dir: str) -> str:
@@ -238,8 +239,8 @@ def ladder_rank(model_dir: str) -> int:
 
 
 def find_models(include_llm: bool = False) -> dict[str, Path]:
-    """Every model the app can run, one per run (its best logged seed), by dataset, up the
-    ladder (TF-IDF, then encoders best first, then Qwen3-8B).
+    """Every model the app can run, one per run (its seed with the best validation macro-F1),
+    by dataset, up the ladder (TF-IDF, then encoders best first, then Qwen3-8B).
 
     QLoRA adapters (Qwen3-8B, about 6 GB of GPU memory) are listed only when the LLM is on.
     """
@@ -253,7 +254,7 @@ def find_models(include_llm: bool = False) -> dict[str, Path]:
     def key(p: Path) -> tuple:
         dataset = dataset_of(str(p))
         rank = order.index(dataset) if dataset in order else 99
-        return (rank, ladder_rank(str(p)), -(test_f1(str(p)) or 0.0))
+        return (rank, ladder_rank(str(p)), -(val_f1(str(p)) or 0.0))
 
     best: dict[str, Path] = {}
     for p in sorted(found, key=key):
