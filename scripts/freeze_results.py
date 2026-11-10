@@ -26,7 +26,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import shutil
 import subprocess
 import sys
 from datetime import datetime
@@ -104,7 +103,9 @@ def main() -> None:
         return
 
     FINAL_DIR.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(RUNS_CSV, FROZEN)
+    # Unix line endings, so the hash is the same on every machine (Windows writes CRLF;
+    # .gitattributes keeps results/final/*.csv LF on checkout).
+    FROZEN.write_bytes(RUNS_CSV.read_bytes().replace(b"\r\n", b"\n"))
     commit = git("rev-parse", "--short", "HEAD")
     dirty = bool(git("status", "--porcelain", "--untracked-files=no"))
     lines = [

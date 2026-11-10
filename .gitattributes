@@ -1,2 +1,4 @@
 * text=auto
 *.sh text eol=lf
+# Frozen results (T43): byte-identical everywhere, so their SHA-256 matches
+results/final/*.csv text eol=lf
