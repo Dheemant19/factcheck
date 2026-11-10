@@ -1,0 +1,11 @@
+Spec ID,Requirement,Target,Achieved,Context & Interpretation
+S1,Algorithms Explored,>= 2 Families,4 Families,"TF-IDF/SVM, Bi-LSTM, Transformers, LLMs"
+S2,COVID-19 Weighted F1,>= 0.95,0.980,High vocabulary alignment in COVID-Twitter-BERT
+S3,LIAR 6-Class Accuracy,>= 0.28,0.296 (6-Class) / 0.673 (Binary),Outperforms Wang (2017) baseline (0.274); text-only multi-class capped
+S4,PUBHEALTH Macro-F1,>= 0.65,0.562 (4-Class) / 0.815 (Binary),Class imbalance on unproven claims; evidence retrieval yields +0.058 gain
+S5,ISOT Clean Accuracy,>= 0.95,0.974,Evaluated on clean text without publisher dateline shortcuts
+S6,GPU Encoder Latency,<= 50 ms/claim,18.4 ms,Meets real-time triage constraints
+S7,App End-to-End Latency,<= 5.0 s/claim,2.15 s,Retrieval + 4-bit Qwen3-8B interactive execution
+S8,App VRAM Footprint,<= 8.0 GB,5.80 GB,Co-exists on consumer GPUs
+S9,Single Run GPU Budget,<= 6.0 hours,2.2 hours,Fits within single GPU cluster budget
+S10,Reproducibility,1 Command / YAML,Fully Scripted,Executable configs with locked seed registry
