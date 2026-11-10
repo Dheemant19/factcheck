@@ -118,6 +118,33 @@ def test_pruned_trial_stops_after_its_first_epoch(tiny_covid):
     assert list(trial.intermediate_values) == [1]
 
 
+def test_out_of_memory_trial_frees_its_model(tiny_covid, monkeypatch):
+    """The OOM error must not carry the failed trial's tensors into the next trial."""
+    import gc
+    import weakref
+
+    import torch
+
+    class Model:  # stands in for the trial's model on the GPU
+        pass
+
+    alive = []
+
+    def out_of_memory(cfg, **kwargs):  # noqa: ANN001
+        model = Model()
+        alive.append(weakref.ref(model))
+        raise torch.cuda.OutOfMemoryError("CUDA out of memory. Tried to allocate 2.00 GiB")
+
+    monkeypatch.setattr(encoder, "train_encoder", out_of_memory)
+    base = yaml.safe_load(tiny_covid.read_text(encoding="utf-8"))
+    trial = optuna.create_study(direction="maximize").ask()
+    with pytest.raises(torch.cuda.OutOfMemoryError, match="Tried to allocate") as caught:
+        tune.objective(trial, base)
+    gc.collect()
+    assert alive[0]() is None  # freed, although the error is still held
+    assert caught.value.__context__ is None and caught.value.__cause__ is None
+
+
 def test_tune_and_export(tiny_covid):
     """Two workers' worth of trials share one study, and the export writes the tuned config."""
     tune.tune(str(tiny_covid), n_trials=2)
