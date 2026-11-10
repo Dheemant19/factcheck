@@ -12,6 +12,7 @@ Writes to results/shortcuts/:
     tfidf_summary.csv            dataset, variant, validation accuracy and macro-F1, top words
     top_words_<dataset>_<variant>.csv
     isot_rule_hits.csv           per rule: how many fake and real ISOT articles it changed
+    headline_case_probe.csv      ISOT label from headline capitalisation alone (--headline)
 """
 
 from __future__ import annotations
@@ -29,8 +30,9 @@ from sklearn.metrics import accuracy_score, f1_score
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from factcheck.data import get_dataset, load_splits  # noqa: E402
 from factcheck.data.cleaning import basic_clean  # noqa: E402
+from factcheck.data.readers import ISOT_FILES, require, stable_id  # noqa: E402
 from factcheck.data.shortcuts import SHORTCUT_RULES, remove_shortcuts  # noqa: E402
-from factcheck.paths import RESULTS_DIR  # noqa: E402
+from factcheck.paths import RAW_DIR, RESULTS_DIR  # noqa: E402
 
 OUT_DIR = RESULTS_DIR / "shortcuts"
 TOP_N = 30
@@ -86,13 +88,59 @@ def isot_rule_hits() -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def headline_case_probe() -> dict:
+    """Does the CAPITALISATION of an ISOT headline alone give the label away?
+
+    Reuters writes headlines in sentence case ("FBI Russia probe helped by Australian
+    diplomat tip-off"); the fake sites mostly use Title Case or capitals ("Trump Is So
+    Obsessed He Even Has Obama's Name Coded Into His Website"). Two numbers per article, the
+    share of headline words that start with a capital and the share written in capitals, go
+    into a logistic regression trained on train and scored on validation. The clean variant
+    keeps capitals on purpose (style, not a collection artefact), so this measures what the
+    cleaning leaves for a case-sensitive model; TF-IDF lower-cases and cannot see it.
+    """
+    titles = {}
+    for filename in ISOT_FILES.values():
+        df = pd.read_csv(require(RAW_DIR / "isot" / filename), dtype=str, keep_default_na=False)
+        titles.update(zip((df["title"] + ". " + df["text"]).map(stable_id), df["title"],
+                          strict=True))  # fmt: skip
+
+    def features(df: pd.DataFrame) -> np.ndarray:
+        words = df["id"].map(titles).str.split()
+        capital = words.map(lambda w: np.mean([x[:1].isupper() for x in w]) if w else 0.0)
+        shouting = words.map(
+            lambda w: np.mean([x.isupper() and len(x) > 1 for x in w]) if w else 0.0
+        )
+        return np.c_[capital, shouting]
+
+    splits = load_splits("isot", "clean")
+    train, val = splits["train"], splits["validation"]
+    model = LogisticRegression().fit(features(train), train["binary_label"])
+    pred = model.predict(features(val))
+    return {
+        "probe": "ISOT headline capitalisation only (2 numbers per article)",
+        "val_accuracy": round(accuracy_score(val["binary_label"], pred), 4),
+        "val_macro_f1": round(f1_score(val["binary_label"], pred, average="macro"), 4),
+        "majority_accuracy": round(
+            float(val["binary_label"].value_counts(normalize=True).max()), 4
+        ),
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawTextHelpFormatter
     )
     parser.add_argument("--datasets", nargs="+", default=["isot", "covid"])
+    parser.add_argument("--headline", action="store_true", help="only the ISOT headline probe")
     args = parser.parse_args()
     OUT_DIR.mkdir(parents=True, exist_ok=True)
+    if args.headline or "isot" in args.datasets:
+        probe = headline_case_probe()
+        pd.DataFrame([probe]).to_csv(OUT_DIR / "headline_case_probe.csv", index=False)
+        print(probe)
+        if args.headline:
+            return
 
     summaries = []
     for name in args.datasets:
