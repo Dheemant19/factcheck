@@ -121,6 +121,7 @@ def load(model_dir: str | Path) -> Classifier | Baseline:
 class Prediction:
     label_probs: dict[str, float]  # label name -> probability, in the dataset's label order
     fake_prob: float  # summed over the labels that count as false
+    true_prob: float  # summed over the labels that count as true; the rest is neither
     seconds: float  # the model's forward pass for this claim (loading excluded)
 
 
@@ -204,6 +205,7 @@ class Classifier:
         return Prediction(
             label_probs={name: float(p) for name, p in zip(self.info.labels, probs, strict=True)},
             fake_prob=float(probs[self.info.fake_label_ids].sum()),
+            true_prob=float(probs[self.info.real_label_ids].sum()),
             seconds=seconds,
         )
 
@@ -257,6 +259,7 @@ class Baseline:
         return Prediction(
             label_probs={name: float(p) for name, p in zip(self.info.labels, probs, strict=True)},
             fake_prob=float(probs[self.info.fake_label_ids].sum()),
+            true_prob=float(probs[self.info.real_label_ids].sum()),
             seconds=seconds,
         )
 
