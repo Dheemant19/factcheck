@@ -237,6 +237,23 @@ seed and split; re-running a config replaces its rows). Per-row probabilities go
 `results/predictions/<run>/seed<N>/` (not committed) for ensembles, significance tests and
 calibration curves. Spec targets live in `configs/specs.yaml`.
 
+### Ensembles, significance and the extra-effort chart (T31, T32)
+
+```bash
+bash jobs/t31_ensemble.sh      # both steps below; run where results/predictions/ is complete
+python -m factcheck.ensemble   # top-3 soft vote per dataset + paired bootstrap / McNemar tests
+python -m factcheck.extra_effort   # E5 table and chart from runs.csv
+```
+
+`factcheck.ensemble` averages each run's seeds, picks the 3 best models per dataset on
+validation macro-F1 (preferring a different backbone within 0.01), soft-votes them and logs
+`ensemble_top3_<dataset>` to `runs.csv`. It then tests the planned comparisons (ensemble vs
+best single model, best encoder vs BERT-base and vs the best Qwen3-8B mode, LoRA vs full
+fine-tuning, each extra-effort step) with a 10,000-resample paired bootstrap and McNemar's
+test, Holm-corrected, in `results/significance.csv`. `factcheck.extra_effort` writes
+`results/e5_extra_effort.{csv,md}` and `results/figures/e5_extra_effort.png`. The reasoning
+is in `docs/m3_ensemble_and_extras.md`.
+
 ## The app
 
 ```bash
