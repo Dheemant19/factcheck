@@ -46,8 +46,8 @@ Wrote the dataset loaders and the fixed, committed splits (T03), the data explor
 (T09) and the shortcut removal and leakage checks (T13: 16 rules for cleaned ISOT, 831 copied
 training rows excluded). Built the retrieval index and the kNN-vote baseline (T08), the prompt
 and input builders used by the LLM runs (T14) and the metadata and evidence switches (T15).
-Wrote the significance tests and optional ensemble (T31; the run on the saved predictions is
-still to do on the cluster), the extra-effort chart (T32) and the LDA topic study (T56).
+Wrote the significance tests and optional ensemble (T31; M1 ran them on the saved
+predictions), the extra-effort chart (T32) and the LDA topic study (T56).
 Wrote the interpretation paragraphs for this part (T57), reviewed M4's code (T44) and froze the
 results (T43).
 
@@ -95,7 +95,7 @@ between slots by agreement, and each move is in the contribution log.
 * Log every run from committed code: 255 of the 502 frozen result rows were logged with
   uncommitted changes, so the exact code behind them cannot be named by a single commit.
 * Put the saved predictions where everyone can reach them; the significance tests (T31) had to
-  wait because the predictions stayed on the cluster.
+  wait until the end because the predictions stayed on the GPU servers.
 * Spread the load more evenly and keep the contribution log current: one member took over
   several other members' tasks, and one member has no log entries yet.
 
