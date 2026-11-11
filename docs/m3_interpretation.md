@@ -106,10 +106,10 @@ combination was run.
 
 **What we saw.** LDA with 10 topics on the training text. On ISOT, the topic proportions
 alone predict real vs fake with 0.89 macro-F1 (0.35 for always guessing the bigger class), and
-59% of articles sit in topics that are at least 80% one label: "donald, hillary, news, obama,
-clinton, media" is 34% of fake text but 3% of real; "china, north korea, military, iran" is
-23% of real text but 3% of fake. On PUBHEALTH the same probe gets 0.46 against 0.38, with an
-accuracy only one point above guessing, and no topic is one-sided.
+56% of articles sit in topics that are at least 80% one label: "donald, hillary, news, obama,
+clinton, media" is 34% of fake text but 3% of real; "china, north korea, nuclear, foreign minister"
+is 21% of real text but 3% of fake. On PUBHEALTH the same probe gets 0.47 against 0.38, with an
+accuracy half a point above guessing, and no topic is one-sided.
 
 **Why.** ISOT's real articles are Reuters world and politics news; its fake ones come from US
 partisan sites that write about US personalities and culture-war stories. A model can learn
@@ -117,7 +117,7 @@ partisan sites that write about US personalities and culture-war stories. A mode
 about the same health subjects, chosen by fact-checkers, so the subject says almost nothing
 about the verdict.
 
-**What it cost.** About seven minutes on a laptop CPU, no labels needed. The lesson carries
+**What it cost.** About two minutes on a laptop CPU, no labels needed. The lesson carries
 beyond this dataset: before trusting a high score, check whether the labels can be predicted
 from the subject alone.
 
