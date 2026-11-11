@@ -1,0 +1,10 @@
+train_dataset,test_dataset,macro_f1,accuracy
+covid,covid,0.9724,0.9724
+covid,liar,0.3149,0.438
+covid,pubhealth,0.2841,0.3941
+liar,covid,0.7348,0.735
+liar,liar,0.6284,0.6454
+liar,pubhealth,0.397,0.4083
+pubhealth,covid,0.6951,0.6953
+pubhealth,liar,0.5919,0.6009
+pubhealth,pubhealth,0.7711,0.7862

@@ -1,0 +1,121 @@
+label,kind,rank,feature,weight
+real,word,1,active cases,6.8485
+real,word,2,lagos,6.693
+real,word,3,fct,6.6191
+real,word,4,update is,6.5831
+real,word,5,states reported,6.5589
+real,word,6,is published,6.5541
+real,word,7,daily update,6.5144
+real,word,8,covid19 cases,6.4805
+real,word,9,indiawillwin,6.4701
+real,word,10,drtedros,6.4598
+real,word,11,ogun,6.4536
+real,word,12,of confirmed,6.4458
+real,word,13,oyo,6.4026
+real,word,14,managed isolation,6.3518
+real,word,15,pib_india,6.3411
+real,word,16,edo,6.3349
+real,word,17,kaduna,6.3262
+real,word,18,covid19nigeria,6.3146
+real,word,19,staysafe indiawillwin,6.2799
+real,word,20,learn more,6.2507
+real,word,21,plateau,6.2076
+real,word,22,see https,6.1942
+real,word,23,indiafightscorona india,6.1727
+real,word,24,our total,6.1636
+real,word,25,bauchi,6.1626
+real,word,26,tests completed,6.1538
+real,word,27,kano,6.1262
+real,word,28,ondo,6.0898
+real,word,29,yesterday our,6.0721
+real,word,30,osun,6.0431
+real,char,1,'⁣ ',5.9109
+real,char,2,'-@',5.779
+real,char,3,'lagos',5.764
+real,char,4,'​ ',5.7383
+real,char,5,'shed.',5.7168
+real,char,6,' lago',5.6931
+real,char,7,'fct',5.6888
+real,char,8,' ➡',5.6642
+real,char,9,'➡️',5.6475
+real,char,10,' ➡️',5.6475
+real,char,11,' ​',5.6394
+real,char,12,'@drte',5.6034
+real,char,13,'drte',5.6034
+real,char,14,'drted',5.6034
+real,char,15,'rtedr',5.6034
+real,char,16,' fct',5.5848
+real,char,17,' fc',5.5848
+real,char,18,'do-',5.5839
+real,char,19,'-@d',5.5326
+real,char,20,'-@dr',5.5326
+real,char,21,'-@drt',5.5326
+real,char,22,'lwin',5.5092
+real,char,23,'illwi',5.5092
+real,char,24,'iawil',5.5092
+real,char,25,'llwin',5.5092
+real,char,26,'ndiaw',5.5092
+real,char,27,'willw',5.5092
+real,char,28,'illw',5.5092
+real,char,29,'awill',5.5092
+real,char,30,'awil',5.5092
+fake,word,1,donaldtrump,7.266
+fake,word,2,donald,7.1032
+fake,word,3,donald trump,7.0968
+fake,word,4,bill,6.9293
+fake,word,5,gates,6.9187
+fake,word,6,photo,6.7488
+fake,word,7,president trump,6.6947
+fake,word,8,cures,6.6694
+fake,word,9,bill gates,6.6685
+fake,word,10,image,6.6543
+fake,word,11,video of,6.6498
+fake,word,12,coronavirusfacts,6.5291
+fake,word,13,claim that,6.4785
+fake,word,14,president donald,6.466
+fake,word,15,000,6.4165
+fake,word,16,donaldtrump coronavirus,6.3994
+fake,word,17,on facebook,6.3725
+fake,word,18,corona virus,6.3353
+fake,word,19,5g,6.3249
+fake,word,20,can cure,6.2488
+fake,word,21,coronavirusfacts https,6.2367
+fake,word,22,muslims,6.2009
+fake,word,23,coronavirus was,6.194
+fake,word,24,money,6.1888
+fake,word,25,cure for,6.1535
+fake,word,26,god,6.1391
+fake,word,27,of times,6.1316
+fake,word,28,brazilian,6.1243
+fake,word,29,dead,6.1225
+fake,word,30,misinformation,6.1076
+fake,char,1,"', '",7.7783
+fake,char,2,'??',7.5526
+fake,char,3,'???',6.947
+fake,char,4,'onald',6.8209
+fake,char,5,'nald',6.8209
+fake,char,6,'� ',6.7951
+fake,char,7,'donal',6.7913
+fake,char,8,' ?',6.7895
+fake,char,9,"'s,'",6.7641
+fake,char,10,' ??',6.7609
+fake,char,11,"'s, '",6.7261
+fake,char,12,' ???',6.7241
+fake,char,13,'??�',6.6844
+fake,char,14,'?�',6.6844
+fake,char,15,'?� ',6.6814
+fake,char,16,'??� ',6.6814
+fake,char,17,'.?',6.4726
+fake,char,18,'.??',6.4455
+fake,char,19,'.??�',6.4356
+fake,char,20,'.??� ',6.4356
+fake,char,21,'laim ',6.283
+fake,char,22,'dtr',6.2465
+fake,char,23,'ldt',6.2455
+fake,char,24,'ldtr',6.2352
+fake,char,25,'aldtr',6.2352
+fake,char,26,'aldt',6.2352
+fake,char,27,'dtru',6.2352
+fake,char,28,'dtrum',6.2352
+fake,char,29,'ldtru',6.2352
+fake,char,30,'naldt',6.2352

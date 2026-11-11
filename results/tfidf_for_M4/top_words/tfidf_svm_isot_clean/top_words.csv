@@ -1,0 +1,61 @@
+label,kind,rank,feature,weight
+real,word,1,said,7.002
+real,word,2,said on,4.5649
+real,word,3,president donald,4.0294
+real,word,4,on tuesday,3.5913
+real,word,5,on wednesday,3.5772
+real,word,6,on thursday,3.2384
+real,word,7,on friday,3.1638
+real,word,8,on,3.1243
+real,word,9,said in,2.9911
+real,word,10,on monday,2.8538
+real,word,11,republican,2.4112
+real,word,12,nov,2.2688
+real,word,13,president barack,2.1772
+real,word,14,wednesday,2.1474
+real,word,15,factbox,2.0813
+real,word,16,he said,2.0782
+real,word,17,told,1.953
+real,word,18,on sunday,1.9044
+real,word,19,tuesday,1.8639
+real,word,20,said the,1.7788
+real,word,21,thursday,1.7778
+real,word,22,on saturday,1.6761
+real,word,23,democratic,1.6691
+real,word,24,the nov,1.6214
+real,word,25,had,1.5969
+real,word,26,in statement,1.5852
+real,word,27,its,1.557
+real,word,28,presidential,1.5259
+real,word,29,minister,1.476
+real,word,30,spokesman,1.471
+fake,word,1,read more,4.2925
+fake,word,2,president trump,3.2433
+fake,word,3,gop,3.2379
+fake,word,4,the us,3.1315
+fake,word,5,this,3.1262
+fake,word,6,read,3.0173
+fake,word,7,obama,2.8161
+fake,word,8,us,2.7396
+fake,word,9,watch,2.7182
+fake,word,10,just,2.7138
+fake,word,11,mr,2.5126
+fake,word,12,hillary,2.3947
+fake,word,13,sen,2.3332
+fake,word,14,rep,2.2871
+fake,word,15,president obama,2.2815
+fake,word,16,america,2.139
+fake,word,17,is,2.0625
+fake,word,18,reportedly,1.9518
+fake,word,19,here,1.8015
+fake,word,20,even,1.7802
+fake,word,21,these,1.7772
+fake,word,22,you,1.7732
+fake,word,23,gov,1.7677
+fake,word,24,didn,1.6302
+fake,word,25,the gop,1.5459
+fake,word,26,reports,1.5396
+fake,word,27,our,1.4659
+fake,word,28,terror,1.4567
+fake,word,29,press,1.4565
+fake,word,30,isn,1.4504

@@ -1,0 +1,92 @@
+{
+  "run": "tfidf_lr_pubhealth_plain",
+  "seed": 42,
+  "dataset": "pubhealth",
+  "variant": "raw",
+  "family": "classic",
+  "method": "tfidf_lr",
+  "setting": {
+    "C": 0.3,
+    "class_weight": "balanced"
+  },
+  "best_val_macro_f1": 0.48316705145210936,
+  "grid": [
+    {
+      "C": 0.3,
+      "class_weight": null,
+      "val_macro_f1": 0.3304754865730476,
+      "seconds": 0.6913250000216067
+    },
+    {
+      "C": 0.3,
+      "class_weight": "balanced",
+      "val_macro_f1": 0.48316705145210936,
+      "seconds": 1.1072525000199676
+    },
+    {
+      "C": 1.0,
+      "class_weight": null,
+      "val_macro_f1": 0.3574576521884526,
+      "seconds": 1.9353026999160647
+    },
+    {
+      "C": 1.0,
+      "class_weight": "balanced",
+      "val_macro_f1": 0.4736667281236785,
+      "seconds": 1.4393847002647817
+    },
+    {
+      "C": 3.0,
+      "class_weight": null,
+      "val_macro_f1": 0.388201756834432,
+      "seconds": 2.33583420002833
+    },
+    {
+      "C": 3.0,
+      "class_weight": "balanced",
+      "val_macro_f1": 0.45759041448577764,
+      "seconds": 2.200585599988699
+    },
+    {
+      "C": 10.0,
+      "class_weight": null,
+      "val_macro_f1": 0.41347962033046093,
+      "seconds": 3.104287499561906
+    },
+    {
+      "C": 10.0,
+      "class_weight": "balanced",
+      "val_macro_f1": 0.44079611132746777,
+      "seconds": 2.331062899902463
+    },
+    {
+      "C": 30.0,
+      "class_weight": null,
+      "val_macro_f1": 0.41063834398011184,
+      "seconds": 3.4423665003851056
+    },
+    {
+      "C": 30.0,
+      "class_weight": "balanced",
+      "val_macro_f1": 0.42691843349891595,
+      "seconds": 4.112992099951953
+    },
+    {
+      "C": 100.0,
+      "class_weight": null,
+      "val_macro_f1": 0.40652646890150934,
+      "seconds": 4.110679700039327
+    },
+    {
+      "C": 100.0,
+      "class_weight": "balanced",
+      "val_macro_f1": 0.4310115402227505,
+      "seconds": 3.429162099957466
+    }
+  ],
+  "n_features": 60411,
+  "trainable_params": 241648,
+  "train_seconds": 31.35594719974324,
+  "latency_ms": 0.7801000028848648,
+  "device": "cpu"
+}

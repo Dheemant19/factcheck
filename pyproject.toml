@@ -34,7 +34,7 @@ dependencies = [
 
 [project.optional-dependencies]
 llm = ["bitsandbytes>=0.45"]
-explain = ["shap>=0.46", "umap-learn>=0.5"]
+explain = ["shap>=0.46", "umap-learn>=0.5", "seaborn>=0.13"]
 app = ["streamlit>=1.38", "altair>=5.0"]
 kaggle = ["kagglehub>=0.3"]  # ISOT download needs a Kaggle login
 dev = ["pytest>=8", "ruff>=0.6", "black>=24", "jupyter"]

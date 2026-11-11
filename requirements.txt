@@ -31,6 +31,7 @@ bitsandbytes==0.50.2
 # explain
 shap==0.51.0
 umap-learn==0.5.12
+seaborn==0.13.2
 
 # app
 streamlit==1.66.0

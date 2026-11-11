@@ -1,0 +1,44 @@
+{
+  "run": "tfidf_nb_isot_clean",
+  "seed": 42,
+  "dataset": "isot",
+  "variant": "clean",
+  "family": "classic",
+  "method": "tfidf_nb",
+  "setting": {
+    "alpha": 0.01
+  },
+  "best_val_macro_f1": 0.9477939077407889,
+  "grid": [
+    {
+      "alpha": 0.01,
+      "val_macro_f1": 0.9477939077407889,
+      "seconds": 0.06319520017132163
+    },
+    {
+      "alpha": 0.03,
+      "val_macro_f1": 0.9470134459124935,
+      "seconds": 0.061823499854654074
+    },
+    {
+      "alpha": 0.1,
+      "val_macro_f1": 0.9454364659314716,
+      "seconds": 0.06452760007232428
+    },
+    {
+      "alpha": 0.3,
+      "val_macro_f1": 0.9456671445034714,
+      "seconds": 0.06429200014099479
+    },
+    {
+      "alpha": 1.0,
+      "val_macro_f1": 0.9413802300157721,
+      "seconds": 0.06388060003519058
+    }
+  ],
+  "n_features": 200000,
+  "trainable_params": 400002,
+  "train_seconds": 15.447923200204968,
+  "latency_ms": 1.8439998384565115,
+  "device": "cpu"
+}
