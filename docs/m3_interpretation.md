@@ -19,7 +19,8 @@ otherwise; probes are scored on validation.
 * **Similar past fact-checks carry signal where claims repeat** (kNN vote 0.915 on COVID)
   and almost none where each claim is new (0.241 on LIAR).
 * **The one improvement that changes what the model can know, evidence, helps most** (+0.059
-  on PUBHEALTH); tuning helps least.
+  on PUBHEALTH); tuning helps least. But after correcting for 22 comparisons, almost no gap
+  in this project is beyond test-set noise on macro-F1 (Section 6).
 
 ## 1. Source fingerprints, and why removing them changes so little (T13; Weeks 1, 3, 4.1)
 
@@ -106,10 +107,10 @@ combination was run.
 
 **What we saw.** LDA with 10 topics on the training text. On ISOT, the topic proportions
 alone predict real vs fake with 0.89 macro-F1 (0.35 for always guessing the bigger class), and
-59% of articles sit in topics that are at least 80% one label: "donald, hillary, news, obama,
-clinton, media" is 34% of fake text but 3% of real; "china, north korea, military, iran" is
-23% of real text but 3% of fake. On PUBHEALTH the same probe gets 0.46 against 0.38, with an
-accuracy only one point above guessing, and no topic is one-sided.
+56% of articles sit in topics that are at least 80% one label: "donald, hillary, news, obama,
+clinton, media" is 34% of fake text but 3% of real; "china, north korea, nuclear, foreign minister"
+is 21% of real text but 3% of fake. On PUBHEALTH the same probe gets 0.47 against 0.38, with an
+accuracy half a point above guessing, and no topic is one-sided.
 
 **Why.** ISOT's real articles are Reuters world and politics news; its fake ones come from US
 partisan sites that write about US personalities and culture-war stories. A model can learn
@@ -117,19 +118,35 @@ partisan sites that write about US personalities and culture-war stories. A mode
 about the same health subjects, chosen by fact-checkers, so the subject says almost nothing
 about the verdict.
 
-**What it cost.** About seven minutes on a laptop CPU, no labels needed. The lesson carries
+**What it cost.** About two minutes on a laptop CPU, no labels needed. The lesson carries
 beyond this dataset: before trusting a high score, check whether the labels can be predicted
 from the subject alone.
 
 ## 6. Which differences are real? (T31; statistics)
 
-**Status.** The paired bootstrap and McNemar tests (with Holm correction over about 25
-comparisons) are written and tested, but they need every run's per-row predictions, which are
-on the cluster and not in git. Until they run (`bash jobs/t31_ensemble.sh`), use the seed
-spread as a guide: on LIAR and PUBHEALTH the seeds of one model differ by 0.01 to 0.03
-macro-F1, so a gap smaller than about 0.02 between two models there should not be called a
-difference. The metadata gain on LIAR (+0.021 ± 0.010 standard error) is at that edge; the
-evidence gain on PUBHEALTH (+0.059 ± 0.017) is not.
+**What we saw.** 22 planned comparisons on four datasets, each model's 3 seeds averaged,
+tested with a paired bootstrap on test macro-F1 and with McNemar's test on right-or-wrong
+counts, both Holm-corrected (`results/significance.csv`, run 11 Nov). On macro-F1 only one
+gap survives: DeBERTa-v3-large with LoRA is worse than full fine-tuning on PUBHEALTH (−0.096,
+95% interval −0.137 to −0.054). Nothing else does: not tuning, not speaker metadata on LIAR
+(+0.020, interval −0.007 to +0.046), not evidence on PUBHEALTH (+0.042, −0.012 to +0.095),
+not class weights, not the domain models, and not the best encoder against the best Qwen3-8B
+mode on any dataset. McNemar adds two PUBHEALTH results: the evidence model gets more claims
+right than the same model without evidence (Holm p = 0.046) and than BERT-base (p = 0.011).
+
+**Why.** Macro-F1 gives each class the same weight, so a few rows of a rare class move it a
+lot: PUBHEALTH's test set has 45 "unproven" claims out of 1,233, LIAR's has 92 "pants-fire"
+out of 1,283. Resampling the test set therefore spreads the score widely, and with 22 tests
+Holm asks the smallest p-value to be below 0.05 / 22 ≈ 0.002. McNemar counts each claim once,
+so many small wins add up; that is why evidence passes it but not the macro-F1 test. The
+gains here are a little smaller than in the E5 chart (evidence +0.042 against +0.059)
+because the tests average each model's seeds into one prediction before scoring, while the
+chart averages the three seeds' scores. The LoRA runs have one seed each.
+
+**What it cost.** About a minute on a CPU, once the per-row predictions were collected from
+the laptop and both GPU servers. For the report and video: call only the PUBHEALTH LoRA gap
+significant; say evidence makes the model right on more claims, but its macro-F1 gain, like
+every other extra, is within test-set noise.
 
 ## For the video (M3 segment, 1:00 to 2:30)
 

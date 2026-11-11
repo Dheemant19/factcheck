@@ -10,12 +10,13 @@ M4 (figures, T42) and M5 (slides). Numbers below come from `results/runs.csv` as
   `runs.csv` alone. The biggest gains are **evidence on PUBHEALTH (+0.059 macro-F1)**,
   class weights on PUBHEALTH (+0.032), speaker metadata on LIAR (+0.021) and the
   COVID-Twitter-BERT domain model on COVID (+0.008).
-* **T31's code is done and tested, but it has not run on the real predictions yet.** The
-  per-row predictions it needs (`results/predictions/`) are not in git and exist only where
-  the runs were trained. Running `bash jobs/t31_ensemble.sh` there (about a minute, no GPU)
-  writes `results/significance.csv` and adds the p-values to the E5 chart. After the results
-  freeze (T43) it runs with `--skip-ensemble`, the significance tests only, so the frozen
-  `runs.csv` is not changed; plan v4 makes the ensemble itself optional.
+* **T31 ran on 11 Nov** with `--skip-ensemble` (significance tests only, so the frozen
+  `runs.csv` is not changed; plan v4 makes the ensemble itself optional), on the per-row
+  predictions gathered from the laptop, gpu21 and gpu55 (they are not in git). Of 22
+  comparisons, only DeBERTa-v3-large LoRA vs full fine-tuning on PUBHEALTH (−0.096) is
+  significant on macro-F1; see `docs/m3_interpretation.md`, Section 6. To re-run, put the
+  predictions in `results/predictions/` and run `bash jobs/t31_ensemble.sh` (about a minute,
+  no GPU).
 
 ## 1. The ensemble (T31)
 

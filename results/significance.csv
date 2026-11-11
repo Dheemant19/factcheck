@@ -1,0 +1,23 @@
+dataset,comparison,model_a,model_b,seeds_a,seeds_b,test_macro_f1_a,test_macro_f1_b,diff,ci_low,ci_high,p_bootstrap,p_mcnemar,discordant,p_bootstrap_holm,p_mcnemar_holm,significant
+covid,best encoder vs BERT-base,covid_twitter_bert_covid,bert_covid,3,3,0.9817,0.9737,0.008,0.0014,0.0146,0.0174,0.028,53,0.348,0.476,False
+covid,best encoder vs best Qwen3-8B mode,covid_twitter_bert_covid,qwen3_8b_qlora_covid,3,1,0.9817,0.9794,0.0024,-0.0033,0.008,0.3722,0.5108,37,1.0,1.0,False
+covid,Optuna-tuned vs default DeBERTa-v3-base,deberta_v3_base_covid_tuned,deberta_v3_base_covid,3,3,0.9728,0.9747,-0.0019,-0.0056,0.0019,0.329,0.4545,16,1.0,1.0,False
+covid,+ class weights (tuned DeBERTa-v3-base),deberta_v3_base_covid_tuned_cw,deberta_v3_base_covid_tuned,3,3,0.9728,0.9728,0.0,-0.0033,0.0037,1.0,1.0,14,1.0,1.0,False
+covid,domain model vs tuned DeBERTa-v3-base,covid_twitter_bert_covid,deberta_v3_base_covid_tuned,3,3,0.9817,0.9728,0.0089,0.0024,0.0155,0.0046,0.0101,49,0.0966,0.1919,False
+liar,best encoder vs BERT-base,deberta_v3_base_liar_tuned_meta,bert_liar,3,3,0.2946,0.2747,0.0199,-0.0095,0.0498,0.1798,0.2882,320,1.0,1.0,False
+liar,best encoder vs best Qwen3-8B mode,deberta_v3_base_liar_tuned_meta,qwen3_8b_qlora_liar,3,1,0.2946,0.2893,0.0054,-0.027,0.0377,0.7382,0.5705,376,1.0,1.0,False
+liar,Optuna-tuned vs default DeBERTa-v3-base,deberta_v3_base_liar_tuned,deberta_v3_base_liar,3,3,0.2747,0.2787,-0.0039,-0.0245,0.0171,0.717,0.6038,182,1.0,1.0,False
+liar,+ metadata (tuned DeBERTa-v3-base),deberta_v3_base_liar_tuned_meta,deberta_v3_base_liar_tuned,3,3,0.2946,0.2747,0.0199,-0.0073,0.0461,0.1468,0.1798,269,1.0,1.0,False
+liar,+ class weights (tuned DeBERTa-v3-base),deberta_v3_base_liar_tuned_cw,deberta_v3_base_liar_tuned,3,3,0.2709,0.2747,-0.0038,-0.0274,0.0207,0.7586,0.2987,237,1.0,1.0,False
+liar,LoRA vs full fine-tuning (roberta_large),roberta_large_lora_r16_all_liar,roberta_large_liar,1,3,0.2745,0.2934,-0.019,-0.0429,0.005,0.1286,0.083,225,1.0,1.0,False
+liar,LoRA vs full fine-tuning (deberta_v3_large),deberta_v3_large_lora_r64_all_liar,deberta_v3_large_liar,1,3,0.287,0.3081,-0.0211,-0.0478,0.0053,0.1234,0.3658,313,1.0,1.0,False
+pubhealth,best encoder vs BERT-base,deberta_v3_base_pubhealth_tuned_evidence,bert_pubhealth,3,3,0.5528,0.4979,0.0549,0.0003,0.1079,0.0486,0.0005,268,0.8748,0.0105,False
+pubhealth,best encoder vs best Qwen3-8B mode,deberta_v3_base_pubhealth_tuned_evidence,qwen3_8b_qlora_pubhealth,3,1,0.5528,0.5148,0.038,-0.0166,0.0914,0.1722,0.0282,269,1.0,0.476,False
+pubhealth,Optuna-tuned vs default DeBERTa-v3-base,deberta_v3_base_pubhealth_tuned,deberta_v3_base_pubhealth,3,3,0.5104,0.4876,0.0229,-0.0119,0.0598,0.193,0.1778,141,1.0,1.0,False
+pubhealth,+ evidence (tuned DeBERTa-v3-base),deberta_v3_base_pubhealth_tuned_evidence,deberta_v3_base_pubhealth_tuned,3,3,0.5528,0.5104,0.0424,-0.0124,0.0954,0.1318,0.0023,280,1.0,0.046,False
+pubhealth,+ class weights (tuned DeBERTa-v3-base),deberta_v3_base_pubhealth_tuned_cw,deberta_v3_base_pubhealth_tuned,3,3,0.5381,0.5104,0.0277,-0.0115,0.0668,0.178,0.0162,177,1.0,0.2916,False
+pubhealth,domain model vs tuned DeBERTa-v3-base,scibert_pubhealth,deberta_v3_base_pubhealth_tuned,3,3,0.5208,0.5104,0.0104,-0.0303,0.0515,0.6256,0.6258,206,1.0,1.0,False
+pubhealth,LoRA vs full fine-tuning (roberta_large),roberta_large_lora_r64_all_pubhealth,roberta_large_pubhealth,1,3,0.4822,0.4742,0.0081,-0.0217,0.0382,0.586,0.4113,120,1.0,1.0,False
+pubhealth,LoRA vs full fine-tuning (deberta_v3_large),deberta_v3_large_lora_r64_all_pubhealth,deberta_v3_large_pubhealth,1,3,0.4007,0.4962,-0.0955,-0.1374,-0.0541,0.0,0.0,257,0.0,0.0,True
+isot,best encoder vs BERT-base,deberta_v3_large_isot_clean,bert_isot_clean,3,3,1.0,0.999,0.001,0.0003,0.0021,0.0386,0.125,4,0.7334,1.0,False
+isot,best encoder vs best Qwen3-8B mode,deberta_v3_large_isot_clean,qwen3_8b_qlora_isot,3,1,1.0,1.0,0.0,0.0,0.0,1.0,1.0,0,1.0,1.0,False

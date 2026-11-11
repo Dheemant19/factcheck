@@ -1,11 +1,11 @@
 topic,top_words,share_real,share_fake,fake_minus_real
-4,donald hillary news obama clinton media right twitter,0.0301,0.3393,0.3092
-9,women white black school america right children rights,0.0373,0.161,0.1237
-3,police city gun killed man attack old officers,0.0616,0.1052,0.0436
-8,million money campaign clinton company media group foundation,0.0364,0.063,0.0266
-7,republican republicans senate clinton house democratic party vote,0.116,0.0972,-0.0188
-2,russia russian house clinton intelligence fbi investigation white,0.1079,0.0803,-0.0276
-5,party election percent government vote political minister parliament,0.0854,0.0213,-0.0641
-0,tax house percent billion government state budget federal,0.1543,0.059,-0.0953
-6,court state government united states security law muslim,0.1437,0.0432,-0.1005
-1,china north united korea military states state iran,0.2273,0.0306,-0.1967
+4,donald hillary news obama clinton media twitter campaign,0.0301,0.3414,0.3113
+9,women white america school children right black american,0.0394,0.1543,0.1149
+3,cruz florida city home old family ted hurricane,0.0391,0.0801,0.041
+8,police gun court law black case city officers,0.0568,0.0925,0.0357
+2,russia russian clinton house intelligence campaign investigation fbi,0.1122,0.0843,-0.0279
+7,republican republicans senate clinton house democratic court state,0.1285,0.0944,-0.0341
+5,party percent election vote government poll merkel opposition,0.066,0.024,-0.042
+0,tax million house government billion federal state percent,0.1597,0.0701,-0.0896
+6,state government military islamic syria security united saudi,0.1593,0.0329,-0.1264
+1,china north united korea states minister nuclear foreign,0.209,0.0259,-0.1831

@@ -22,7 +22,7 @@ ISOT uses the cleaned text (T13), so the source fingerprints are already gone an
 is what the articles are about. PUBHEALTH uses the claims, the text its models read.
 
 Writes ``results/topics/<dataset>_topics.csv``, ``results/topics/summary.csv`` and
-``results/figures/t56_lda_topics.png``. About seven minutes on a laptop CPU (ISOT is most of it).
+``results/figures/t56_lda_topics.png``. About two minutes on a laptop CPU (ISOT is most of it).
 """
 
 from __future__ import annotations
@@ -82,7 +82,9 @@ def fit_topics(texts: list[str], n_topics: int = N_TOPICS, seed: int = SEED):  #
         batch_size=1024,
         max_iter=15,
         random_state=seed,
-        n_jobs=-1,
+        # One job: online LDA splits each batch across the jobs, so with n_jobs=-1 the topics
+        # (and the probe scores) depended on the machine's CPU count.
+        n_jobs=1,
     ).fit(counts)
     return vec, lda
 
