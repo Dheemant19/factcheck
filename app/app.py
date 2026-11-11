@@ -139,13 +139,17 @@ PAPER = "#faf8f5"
 RUNG_TINT = {"red": "#f8e3e0", "orange": "#f7ead0", "green": "#dcefe6", "gray": "#ebe6dd"}
 RUNG_INK = {"red": "#9e2b23", "orange": "#8a5200", "green": "#0a5f44", "gray": "#18181b"}
 
-# (upper bound on P(false), verdict, theme colour, icon)
+# "Likely true" needs P(true) >= VERDICT_AT and "Likely false" needs P(false) > VERDICT_AT,
+# each summed over the dataset's true or false labels. On a two-label dataset that is P(false)
+# <= 0.4 and > 0.6; labels that are neither (PUBHEALTH mixture and unproven, Climate-FEVER
+# disputed and not enough info) count towards neither side, so they pull a claim to Mixed.
+VERDICT_AT = 0.6
 MIXED = "Mixed / uncertain"
-VERDICTS = [
-    (0.4, "Likely true", "green", ":material/check_circle:"),
-    (0.6, MIXED, "orange", ":material/help:"),
-    (1.0, "Likely false", "red", ":material/cancel:"),
-]
+VERDICTS = {
+    "Likely true": ("green", ":material/check_circle:"),
+    MIXED: ("orange", ":material/help:"),
+    "Likely false": ("red", ":material/cancel:"),
+}
 
 # The few things the native theme cannot do: the word-push bars (aligned rows, values in their
 # own column, so nothing overlaps), section headings a step heavier, no heading link icons.
@@ -193,12 +197,13 @@ h3 { font-weight: 700 !important; }
 
 
 @st.cache_data(ttl=60)
-def logged_test_f1() -> dict[tuple[str, int], float]:
-    """Test macro-F1 of every logged (run, seed), read from results/runs.csv. Used only to
-    pick each run's best seed and the default model, never shown next to a verdict."""
+def logged_val_f1() -> dict[tuple[str, int], float]:
+    """Validation macro-F1 of every logged (run, seed), read from results/runs.csv. Used only
+    to pick each run's best seed and the default model, never shown next to a verdict. Not
+    the test score, so the test set never picks the model the app (and T40) measures."""
     runs = load_runs()
-    test = runs[(runs["split"] == "test") & runs["subset"].isna()]
-    return {(r.run_name, int(r.seed)): float(r.macro_f1) for r in test.itertuples()}
+    val = runs[(runs["split"] == "validation") & runs["subset"].isna()]
+    return {(r.run_name, int(r.seed)): float(r.macro_f1) for r in val.itertuples()}
 
 
 @st.cache_data(max_entries=128)
@@ -206,9 +211,9 @@ def run_config(model_dir: str) -> dict:
     return serve.run_config(model_dir)
 
 
-def test_f1(model_dir: str) -> float | None:
+def val_f1(model_dir: str) -> float | None:
     run = run_config(model_dir)["run"]
-    return logged_test_f1().get((run["name"], int(run["seed"])))
+    return logged_val_f1().get((run["name"], int(run["seed"])))
 
 
 def dataset_of(model_dir: str) -> str:
@@ -234,8 +239,8 @@ def ladder_rank(model_dir: str) -> int:
 
 
 def find_models(include_llm: bool = False) -> dict[str, Path]:
-    """Every model the app can run, one per run (its best logged seed), by dataset, up the
-    ladder (TF-IDF, then encoders best first, then Qwen3-8B).
+    """Every model the app can run, one per run (its seed with the best validation macro-F1),
+    by dataset, up the ladder (TF-IDF, then encoders best first, then Qwen3-8B).
 
     QLoRA adapters (Qwen3-8B, about 6 GB of GPU memory) are listed only when the LLM is on.
     """
@@ -249,7 +254,7 @@ def find_models(include_llm: bool = False) -> dict[str, Path]:
     def key(p: Path) -> tuple:
         dataset = dataset_of(str(p))
         rank = order.index(dataset) if dataset in order else 99
-        return (rank, ladder_rank(str(p)), -(test_f1(str(p)) or 0.0))
+        return (rank, ladder_rank(str(p)), -(val_f1(str(p)) or 0.0))
 
     best: dict[str, Path] = {}
     for p in sorted(found, key=key):
@@ -401,23 +406,31 @@ def share(p: float) -> str:
     return f"{p:.0%}"
 
 
-def verdict(fake_prob: float) -> tuple[str, str, str]:
-    return next((word, color, icon) for bound, word, color, icon in VERDICTS if fake_prob <= bound)
+def verdict_word(pred: serve.Prediction) -> str:
+    if pred.true_prob >= VERDICT_AT:
+        return "Likely true"
+    return "Likely false" if pred.fake_prob > VERDICT_AT else MIXED
 
 
-def sure_of(fake_prob: float, subject: str = "the claim") -> str:
+def verdict(pred: serve.Prediction) -> tuple[str, str, str]:
+    word = verdict_word(pred)
+    return (word, *VERDICTS[word])
+
+
+def sure_of(pred: serve.Prediction, subject: str = "the claim") -> str:
     """How sure the model is, said in the verdict's own direction: 'with a >99% probability
-    that the claim is true' for a true verdict, rather than '<1% probability ... false'."""
-    if verdict(fake_prob)[0] == "Likely true":
-        return f"with a **{share(1 - fake_prob)}** probability that {subject} is true"
-    return f"with a **{share(fake_prob)}** probability that {subject} is false"
+    that the claim is true' for a true verdict, rather than '<1% probability ... false'.
+    P(true) is the model's own, never 1 - P(false), which would count mixed labels as true."""
+    if verdict_word(pred) == "Likely true":
+        return f"with a **{share(pred.true_prob)}** probability that {subject} is true"
+    return f"with a **{share(pred.fake_prob)}** probability that {subject} is false"
 
 
 def verdict_sentence(pred: serve.Prediction, rungs: pd.DataFrame | None = None) -> str:
     """'**Likely false**, with a >99% probability that the claim is false.' For a dataset
     with more than two labels the most likely label is named too."""
-    word, color, icon = verdict(pred.fake_prob)
-    text = f":{color}[{icon} **{word}**], {sure_of(pred.fake_prob)}"
+    word, color, icon = verdict(pred)
+    text = f":{color}[{icon} **{word}**], {sure_of(pred)}"
     if rungs is not None and len(rungs) > 2:
         lit = rungs[rungs["lit"]].iloc[0]
         text += f", most likely rated **{lit['name']}**"
@@ -437,7 +450,7 @@ def rating_color(label: str) -> str:
 
 
 def ladder_rungs(
-    labels: tuple[str, ...], probs: dict[str, float] | None = None, fake_prob: float | None = None
+    labels: tuple[str, ...], probs: dict[str, float] | None = None, confident: bool = False
 ) -> pd.DataFrame:
     """The dataset's labels ordered from false to true; the most probable one is lit.
 
@@ -452,7 +465,6 @@ def ladder_rungs(
     rungs["prob"] = rungs["label"].map(probs) if probs else float("nan")
     rungs["pct"] = rungs["prob"].map(lambda p: "" if pd.isna(p) else share(p))
     rungs["lit"] = rungs["prob"] == rungs["prob"].max() if probs else False
-    confident = fake_prob is not None and verdict(fake_prob)[0] != MIXED
     family = [rating_color(label) for label in rungs["label"]]
     lit = list(rungs["lit"])
     rungs["fill"] = [
@@ -520,7 +532,7 @@ def show_ladder(rungs: pd.DataFrame, names: str = "all") -> None:
 
 
 def prediction_rungs(pred: serve.Prediction) -> pd.DataFrame:
-    return ladder_rungs(tuple(pred.label_probs), pred.label_probs, pred.fake_prob)
+    return ladder_rungs(tuple(pred.label_probs), pred.label_probs, verdict_word(pred) != MIXED)
 
 
 # --------------------------------------------------------------------------- shared pieces
@@ -832,9 +844,9 @@ def verdict_block(result: dict | None, rungs: pd.DataFrame) -> None:
     with st.container(border=True):
         if result:
             pred = result["pred"]
-            word, color, icon = verdict(pred.fake_prob)
+            word, color, icon = verdict(pred)
             st.header(f":{color}[{icon} {word}]", anchor=False)
-            text = f"The model gives {sure_of(pred.fake_prob, 'this claim')[5:]}"
+            text = f"The model gives {sure_of(pred, 'this claim')[5:]}"
             if len(rungs) > 2:
                 lit = rungs[rungs["lit"]].iloc[0]
                 text += f", and rates it most likely **{lit['name']}**"
@@ -847,7 +859,7 @@ def verdict_block(result: dict | None, rungs: pd.DataFrame) -> None:
 
 def llm_block(result: dict, encoder_pred: serve.Prediction) -> None:
     llm = result["llm"]
-    agree = verdict(encoder_pred.fake_prob)[0] == verdict(llm.fake_prob)[0]
+    agree = verdict_word(encoder_pred) == verdict_word(llm)
     with st.container(border=True):
         st.markdown("#### Second opinion from Qwen3-8B")
         st.markdown(verdict_sentence(llm, prediction_rungs(llm)))
@@ -1030,7 +1042,7 @@ def compare_view(models: dict[str, Path]) -> None:
             with st.container(border=True):
                 st.markdown(highlighted(whys[model_dir]))
             push_bars(whys[model_dir], top=5, scale=scale)
-    verdicts = {verdict(p.fake_prob)[0] for p, _ in results.values()}
+    verdicts = {verdict_word(p) for p, _ in results.values()}
     st.space("small")
     if len(results) > 1 and len(verdicts) > 1:
         st.markdown(

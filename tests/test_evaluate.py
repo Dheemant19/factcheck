@@ -126,6 +126,28 @@ def test_logging_again_replaces_the_old_row(tmp_results):
     assert runs.set_index("seed").loc[42, "accuracy"] == 1.0
 
 
+def test_a_crash_while_writing_leaves_runs_csv_whole(tmp_results, monkeypatch):
+    covid = get_dataset("covid")
+    df = split_df([0, 1])
+    log_run(cfg("lstm_covid", "covid"), covid, {"test": (df, onehot([1, 1], 2))})
+    before = (tmp_results / "runs.csv").read_bytes()
+
+    to_csv = pd.DataFrame.to_csv
+
+    def half_written(self, path, **kwargs):  # noqa: ANN001  (only the runs.csv write dies)
+        if "runs.csv" not in str(path):
+            return to_csv(self, path, **kwargs)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("timestamp,run_na")
+        raise OSError("killed mid-write")
+
+    monkeypatch.setattr(pd.DataFrame, "to_csv", half_written)
+    with pytest.raises(OSError, match="mid-write"):
+        log_run(cfg("lstm_covid", "covid", seed=13), covid, {"test": (df, onehot([1, 1], 2))})
+    assert (tmp_results / "runs.csv").read_bytes() == before
+    assert not list(tmp_results.glob("*.tmp")) and not list(tmp_results.glob(".*.tmp"))
+
+
 def test_isot_also_logs_the_llm_subset(tmp_results):
     isot = get_dataset("isot")
     df = split_df([0, 1, 1, 0], llm_subset=[True, True, False, False])

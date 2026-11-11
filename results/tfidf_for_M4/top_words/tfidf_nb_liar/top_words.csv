@@ -1,0 +1,361 @@
+label,kind,rank,feature,weight
+pants-fire,word,1,socialists,3.4349
+pants-fire,word,2,are socialists,3.0821
+pants-fire,word,3,transactions,2.9228
+pants-fire,word,4,created zero,2.8917
+pants-fire,word,5,zero jobs,2.8917
+pants-fire,word,6,sic,2.7517
+pants-fire,word,7,reps,2.6919
+pants-fire,word,8,bachmann said,2.6641
+pants-fire,word,9,bachmann,2.6641
+pants-fire,word,10,socialists who,2.6613
+pants-fire,word,11,openly serving,2.6613
+pants-fire,word,12,are openly,2.6613
+pants-fire,word,13,inches away,2.6606
+pants-fire,word,14,apology tour,2.5904
+pants-fire,word,15,obama began,2.5904
+pants-fire,word,16,sean duffy,2.5693
+pants-fire,word,17,tweet,2.5553
+pants-fire,word,18,bet,2.5475
+pants-fire,word,19,damage to,2.5429
+pants-fire,word,20,michelle obama,2.4862
+pants-fire,word,21,polls by,2.4845
+pants-fire,word,22,meat,2.442
+pants-fire,word,23,duffy,2.4419
+pants-fire,word,24,blue cross,2.4385
+pants-fire,word,25,25 of,2.4302
+pants-fire,word,26,stimulus spending,2.4301
+pants-fire,word,27,of obama,2.4223
+pants-fire,word,28,was serious,2.4127
+pants-fire,word,29,serious voter,2.4127
+pants-fire,word,30,team is,2.4106
+pants-fire,char,1,'lim.',2.2532
+pants-fire,char,2,'lim. ',2.2532
+pants-fire,char,3,'slim.',2.2532
+pants-fire,char,4,'nsac',2.2514
+pants-fire,char,5,'sact',2.2514
+pants-fire,char,6,'sacti',2.2514
+pants-fire,char,7,'nsact',2.2514
+pants-fire,char,8,'ransa',2.2514
+pants-fire,char,9,'ansac',2.2514
+pants-fire,char,10,'eps.',2.1205
+pants-fire,char,11,'reps',2.1205
+pants-fire,char,12,' reps',2.1205
+pants-fire,char,13,'reps.',2.1205
+pants-fire,char,14,'cab',2.1037
+pants-fire,char,15,'ialis',2.0974
+pants-fire,char,16,' 3.8',2.0669
+pants-fire,char,17,'ciali',2.0574
+pants-fire,char,18,'eps. ',2.0378
+pants-fire,char,19,'chman',1.9869
+pants-fire,char,20,'bachm',1.9869
+pants-fire,char,21,'hele ',1.9869
+pants-fire,char,22,'chele',1.9869
+pants-fire,char,23,'hele',1.9869
+pants-fire,char,24,'achma',1.9869
+pants-fire,char,25,'hmann',1.9869
+pants-fire,char,26,' cabi',1.9812
+pants-fire,char,27,'cabi',1.9812
+pants-fire,char,28,'cabin',1.9812
+pants-fire,char,29,'abin',1.9812
+pants-fire,char,30,'lists',1.9757
+false,word,1,destroyed,2.3655
+false,word,2,terry mcauliffe,2.346
+false,word,3,terry,2.346
+false,word,4,debunked,2.3146
+false,word,5,mcauliffe,2.167
+false,word,6,never asked,2.1329
+false,word,7,court nominee,2.1234
+false,word,8,never worked,2.1176
+false,word,9,children to,2.0753
+false,word,10,becomes,2.0364
+false,word,11,on whether,2.0269
+false,word,12,the iran,2.0145
+false,word,13,for tax,1.9908
+false,word,14,says many,1.9779
+false,word,15,vice president,1.9701
+false,word,16,jan,1.9653
+false,word,17,worked in,1.9585
+false,word,18,scheme,1.9565
+false,word,19,on support,1.9494
+false,word,20,vice,1.9241
+false,word,21,come down,1.8889
+false,word,22,deciding,1.8796
+false,word,23,raised by,1.8746
+false,word,24,experience in,1.8666
+false,word,25,stories,1.8581
+false,word,26,justin,1.8529
+false,word,27,bankrupt,1.8358
+false,word,28,choosing,1.8333
+false,word,29,iran deal,1.83
+false,word,30,sponsored the,1.8269
+false,char,1,'bunke',1.648
+false,char,2,'terry',1.6215
+false,char,3,'roye',1.5785
+false,char,4,'royed',1.5785
+false,char,5,'troye',1.5785
+false,char,6,'bunk',1.5299
+false,char,7,'unked',1.4856
+false,char,8,' vice',1.4627
+false,char,9,'ell.',1.4515
+false,char,10,'estro',1.4294
+false,char,11,'ulif',1.4126
+false,char,12,'cauli',1.4126
+false,char,13,'caul',1.4126
+false,char,14,'uliff',1.4126
+false,char,15,' mcau',1.4126
+false,char,16,'liffe',1.4126
+false,char,17,'mcau',1.4126
+false,char,18,'aulif',1.4126
+false,char,19,'mcaul',1.4126
+false,char,20,'ebun',1.3775
+false,char,21,'ebunk',1.3775
+false,char,22,'debun',1.3775
+false,char,23,'iffe ',1.3667
+false,char,24,'stroy',1.348
+false,char,25,'troy',1.348
+false,char,26,"'ou, '",1.3364
+false,char,27,"'ou,'",1.3364
+false,char,28,"'you,'",1.3364
+false,char,29,"' you,'",1.3364
+false,char,30,"'you, '",1.3364
+barely-true,word,1,keep unemployment,2.211
+barely-true,word,2,deciding vote,2.1487
+barely-true,word,3,administration spent,2.1441
+barely-true,word,4,spending in,2.1293
+barely-true,word,5,arrested and,2.0784
+barely-true,word,6,the deciding,2.051
+barely-true,word,7,staffers,2.0285
+barely-true,word,8,deciding,2.0157
+barely-true,word,9,policies of,1.9948
+barely-true,word,10,women with,1.9892
+barely-true,word,11,unemployment under,1.9892
+barely-true,word,12,fleet,1.9773
+barely-true,word,13,federal reserve,1.9611
+barely-true,word,14,supported higher,1.9564
+barely-true,word,15,economy by,1.947
+barely-true,word,16,sink supported,1.9195
+barely-true,word,17,cast the,1.9052
+barely-true,word,18,parrish,1.9049
+barely-true,word,19,julie parrish,1.9049
+barely-true,word,20,says julie,1.9049
+barely-true,word,21,murphys,1.9041
+barely-true,word,22,for even,1.8986
+barely-true,word,23,where we,1.8816
+barely-true,word,24,most uninsured,1.8775
+barely-true,word,25,bank of,1.8749
+barely-true,word,26,arent working,1.8728
+barely-true,word,27,medicare cuts,1.872
+barely-true,word,28,uranium,1.8717
+barely-true,word,29,blocking,1.8692
+barely-true,word,30,the policies,1.8624
+barely-true,char,1,'cidin',1.5149
+barely-true,char,2,"'ist,'",1.3994
+barely-true,char,3,"'ist, '",1.3994
+barely-true,char,4,'flee',1.3849
+barely-true,char,5,' flee',1.3849
+barely-true,char,6,'reu',1.3439
+barely-true,char,7,' 25-',1.3343
+barely-true,char,8,'safe.',1.3305
+barely-true,char,9,'afe.',1.3305
+barely-true,char,10,'afe. ',1.3305
+barely-true,char,11,'editi',1.3154
+barely-true,char,12,'nele',1.3047
+barely-true,char,13,'leet',1.3035
+barely-true,char,14,'leet ',1.3035
+barely-true,char,15,'fleet',1.3035
+barely-true,char,16,'pillo',1.3013
+barely-true,char,17,'jack ',1.2899
+barely-true,char,18,'card ',1.2807
+barely-true,char,19,' off.',1.2769
+barely-true,char,20,'nun',1.2636
+barely-true,char,21,' uran',1.2467
+barely-true,char,22,'anium',1.2467
+barely-true,char,23,'raniu',1.2467
+barely-true,char,24,'aniu',1.2467
+barely-true,char,25,' ura',1.2467
+barely-true,char,26,'urani',1.2467
+barely-true,char,27,' jac',1.2413
+barely-true,char,28,' $1.9',1.2364
+barely-true,char,29,'$1.9',1.2364
+barely-true,char,30,' pill',1.2322
+half-true,word,1,indiana,2.1128
+half-true,word,2,anytime,1.997
+half-true,word,3,jobs to,1.9875
+half-true,word,4,will raise,1.8881
+half-true,word,5,medicare fraud,1.8667
+half-true,word,6,on support,1.8644
+half-true,word,7,260,1.8481
+half-true,word,8,was elected,1.8157
+half-true,word,9,film,1.8123
+half-true,word,10,now hes,1.808
+half-true,word,11,but in,1.804
+half-true,word,12,ranking,1.7913
+half-true,word,13,mica,1.782
+half-true,word,14,john mica,1.782
+half-true,word,15,dropout,1.7771
+half-true,word,16,santorum,1.7697
+half-true,word,17,is considered,1.7628
+half-true,word,18,2000 and,1.7536
+half-true,word,19,put forward,1.7418
+half-true,word,20,for acorn,1.738
+half-true,word,21,shield,1.7368
+half-true,word,22,unemployment is,1.7361
+half-true,word,23,he started,1.718
+half-true,word,24,have won,1.7112
+half-true,word,25,taxed states,1.708
+half-true,word,26,maximum,1.6999
+half-true,word,27,florida for,1.6991
+half-true,word,28,restoration,1.6957
+half-true,word,29,from voting,1.6928
+half-true,word,30,education standards,1.689
+half-true,char,1,'ndian',1.7428
+half-true,char,2,'diana',1.6308
+half-true,char,3,'ndia',1.4858
+half-true,char,4,'india',1.4858
+half-true,char,5,'opout',1.4474
+half-true,char,6,'pout',1.4474
+half-true,char,7,'opou',1.4474
+half-true,char,8,'ropou',1.4474
+half-true,char,9,"'ut.""'",1.3738
+half-true,char,10,"'ut."" '",1.3738
+half-true,char,11,'iana',1.3532
+half-true,char,12,'pout ',1.3159
+half-true,char,13,'ranki',1.2957
+half-true,char,14,'anyti',1.2847
+half-true,char,15,'lm ',1.2747
+half-true,char,16,'ntoru',1.2609
+half-true,char,17,'toru',1.2609
+half-true,char,18,'torum',1.2609
+half-true,char,19,'dropo',1.2491
+half-true,char,20,'tsour',1.2296
+half-true,char,21,'tsou',1.2296
+half-true,char,22,'utsou',1.2296
+half-true,char,23,'utso',1.2296
+half-true,char,24,'outso',1.2296
+half-true,char,25,'etic',1.2271
+half-true,char,26,'ilm ',1.2188
+half-true,char,27,'film ',1.2188
+half-true,char,28,'santo',1.2128
+half-true,char,29,' weak',1.2094
+half-true,char,30,'weak',1.2094
+mostly-true,word,1,highest corporate,2.2758
+mostly-true,word,2,earns,2.1718
+mostly-true,word,3,rate since,2.1032
+mostly-true,word,4,filibustered,2.0637
+mostly-true,word,5,back taxes,2.0526
+mostly-true,word,6,turn medicare,2.0523
+mostly-true,word,7,december,2.0337
+mostly-true,word,8,firearm,1.9836
+mostly-true,word,9,segregated,1.9754
+mostly-true,word,10,immigrants are,1.9735
+mostly-true,word,11,into voucher,1.9701
+mostly-true,word,12,22 times,1.9567
+mostly-true,word,13,in back,1.9225
+mostly-true,word,14,rubio has,1.9016
+mostly-true,word,15,used for,1.8842
+mostly-true,word,16,20 times,1.8841
+mostly-true,word,17,sixth,1.8841
+mostly-true,word,18,1960s,1.8793
+mostly-true,word,19,dollar man,1.8677
+mostly-true,word,20,after he,1.8608
+mostly-true,word,21,man earns,1.855
+mostly-true,word,22,california has,1.855
+mostly-true,word,23,economy on,1.8487
+mostly-true,word,24,the 1960s,1.8448
+mostly-true,word,25,medicare into,1.8446
+mostly-true,word,26,owes,1.8396
+mostly-true,word,27,nearly one,1.8301
+mostly-true,word,28,act and,1.8292
+mostly-true,word,29,obama passed,1.8128
+mostly-true,word,30,were able,1.8051
+mostly-true,char,1,'earns',1.6403
+mostly-true,char,2,'arns',1.5292
+mostly-true,char,3,'22 ',1.4137
+mostly-true,char,4,'ail.',1.3977
+mostly-true,char,5,'dbe',1.3885
+mostly-true,char,6,'21 ',1.3884
+mostly-true,char,7,'decem',1.3838
+mostly-true,char,8,'ecemb',1.3838
+mostly-true,char,9,'cembe',1.3838
+mostly-true,char,10,'cemb',1.3838
+mostly-true,char,11,'ecem',1.3838
+mostly-true,char,12,' dece',1.3735
+mostly-true,char,13,'ixth',1.3681
+mostly-true,char,14,'xth',1.3681
+mostly-true,char,15,'sixth',1.3681
+mostly-true,char,16,'visa',1.3668
+mostly-true,char,17,' visa',1.3668
+mostly-true,char,18,'-ste',1.3667
+mostly-true,char,19,' owe',1.3514
+mostly-true,char,20,'79',1.3504
+mostly-true,char,21,'arns.',1.3411
+mostly-true,char,22,'y-si',1.3399
+mostly-true,char,23,'22',1.3137
+mostly-true,char,24,' 22 ',1.3043
+mostly-true,char,25,'verst',1.2921
+mostly-true,char,26,'rstay',1.2921
+mostly-true,char,27,'ine-',1.2891
+mostly-true,char,28,' per-',1.2841
+mostly-true,char,29,'ades.',1.2739
+mostly-true,char,30,'rns.',1.2678
+true,word,1,six of,2.2945
+true,word,2,tuition for,2.2263
+true,word,3,wages have,2.1335
+true,word,4,abraham,2.1061
+true,word,5,abraham lincoln,2.1061
+true,word,6,compensation,2.0973
+true,word,7,atlanta is,2.088
+true,word,8,the african,2.0861
+true,word,9,almost doubled,2.0559
+true,word,10,of members,2.0305
+true,word,11,blow,2.0089
+true,word,12,blow up,2.0089
+true,word,13,pauls,2.0025
+true,word,14,cuyahoga,2.0013
+true,word,15,cuyahoga county,2.0013
+true,word,16,aren,1.9989
+true,word,17,get in,1.9817
+true,word,18,assets,1.9794
+true,word,19,elected state,1.9709
+true,word,20,restrictive,1.9592
+true,word,21,brewing,1.9546
+true,word,22,heavily,1.9492
+true,word,23,last in,1.9442
+true,word,24,she is,1.9432
+true,word,25,ten years,1.9339
+true,word,26,received an,1.9301
+true,word,27,has played,1.9167
+true,word,28,entire economy,1.9123
+true,word,29,entire state,1.9029
+true,word,30,wedlock,1.8929
+true,char,1,"' ""sen'",1.7332
+true,char,2,"'""sen'",1.7332
+true,char,3,"'""se'",1.6628
+true,char,4,"' ""se'",1.6628
+true,char,5,'satio',1.5635
+true,char,6,'rths ',1.4822
+true,char,7,'rths',1.4822
+true,char,8,'m-',1.4722
+true,char,9,'sset',1.4695
+true,char,10,'pauls',1.4464
+true,char,11,'auls',1.4464
+true,char,12,'nsati',1.4458
+true,char,13,"'""sen.'",1.4441
+true,char,14,' i'',1.4417
+true,char,15,'um-',1.441
+true,char,16,'ictiv',1.4244
+true,char,17,'hog',1.4056
+true,char,18,'ents)',1.3934
+true,char,19,'untie',1.3685
+true,char,20,'nties',1.3685
+true,char,21,'ntie',1.3685
+true,char,22,'nses.',1.3626
+true,char,23,'sati',1.3409
+true,char,24,"'""sena'",1.3407
+true,char,25,'uls',1.3367
+true,char,26,'vily ',1.3344
+true,char,27,'vily',1.3344
+true,char,28,'avil',1.3344
+true,char,29,'avily',1.3344
+true,char,30,'eavil',1.3344

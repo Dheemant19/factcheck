@@ -1,0 +1,361 @@
+label,kind,rank,feature,weight
+pants-fire,word,1,abortion is,6.0885
+pants-fire,word,2,socialists,5.6764
+pants-fire,word,3,face,5.5715
+pants-fire,word,4,have more,5.4629
+pants-fire,word,5,of rhode,5.3404
+pants-fire,word,6,did not,5.0984
+pants-fire,word,7,sic,5.0468
+pants-fire,word,8,muslim,4.9516
+pants-fire,word,9,pay taxes,4.7538
+pants-fire,word,10,crime is,4.7289
+pants-fire,word,11,were going,4.6578
+pants-fire,word,12,there was,4.6028
+pants-fire,word,13,left the,4.5959
+pants-fire,word,14,zero jobs,4.5889
+pants-fire,word,15,created zero,4.5889
+pants-fire,word,16,tweet,4.5538
+pants-fire,word,17,since he,4.5315
+pants-fire,word,18,obamas,4.5296
+pants-fire,word,19,navy,4.5131
+pants-fire,word,20,billion to,4.508
+pants-fire,word,21,creflo dollar,4.4284
+pants-fire,word,22,creflo,4.4284
+pants-fire,word,23,outlaws,4.3995
+pants-fire,word,24,america to,4.3791
+pants-fire,word,25,for life,4.3666
+pants-fire,word,26,congress in,4.2848
+pants-fire,word,27,meat,4.2777
+pants-fire,word,28,25 of,4.2743
+pants-fire,word,29,tax on,4.2187
+pants-fire,word,30,49 states,4.211
+pants-fire,char,1,'% ',4.6456
+pants-fire,char,2,'ce. ',3.8254
+pants-fire,char,3,'ens',3.5532
+pants-fire,char,4,' lan',3.5375
+pants-fire,char,5,'ba',3.5319
+pants-fire,char,6,'s!',3.5245
+pants-fire,char,7,'cab',3.4013
+pants-fire,char,8,'ters',3.391
+pants-fire,char,9,'ens ',3.3718
+pants-fire,char,10,'sw',3.3627
+pants-fire,char,11,'obe',3.3368
+pants-fire,char,12,' land',3.1284
+pants-fire,char,13,'em ',3.1105
+pants-fire,char,14,'ace ',3.073
+pants-fire,char,15,' ret',3.0184
+pants-fire,char,16,' re',3.007
+pants-fire,char,17,'s! ',2.9597
+pants-fire,char,18,'otes',2.9037
+pants-fire,char,19,'ros',2.8961
+pants-fire,char,20,'i ',2.8769
+pants-fire,char,21,' du',2.8637
+pants-fire,char,22,' r',2.8383
+pants-fire,char,23,"'al, '",2.8259
+pants-fire,char,24,'! ',2.8224
+pants-fire,char,25,'ged',2.7427
+pants-fire,char,26,'lu',2.7371
+pants-fire,char,27,' . ',2.7202
+pants-fire,char,28,"'al,'",2.7072
+pants-fire,char,29,'ret',2.7009
+pants-fire,char,30,'k. ',2.6688
+false,word,1,were the,6.3316
+false,word,2,we dont,6.2422
+false,word,3,as it,6.2266
+false,word,4,the texas,5.9031
+false,word,5,children to,5.8638
+false,word,6,has already,5.8589
+false,word,7,to illegal,5.8135
+false,word,8,one time,5.5299
+false,word,9,never asked,5.2907
+false,word,10,state in,5.2851
+false,word,11,money in,5.2821
+false,word,12,when he,5.1497
+false,word,13,to get,5.1398
+false,word,14,obama has,5.0715
+false,word,15,cuts for,5.0316
+false,word,16,the crime,5.0068
+false,word,17,rates on,4.973
+false,word,18,in 2009,4.9715
+false,word,19,regulation,4.9411
+false,word,20,enough money,4.9294
+false,word,21,says many,4.9104
+false,word,22,since obamacare,4.8631
+false,word,23,romney has,4.8401
+false,word,24,health reform,4.8324
+false,word,25,federal health,4.8044
+false,word,26,clinton is,4.7977
+false,word,27,is republican,4.783
+false,word,28,program because,4.7578
+false,word,29,75,4.7494
+false,word,30,attack,4.7225
+false,char,1,'-de',3.7966
+false,char,2,'5 ',3.6742
+false,char,3,' 0',3.6002
+false,char,4,'at.',3.4392
+false,char,5,'ert ',3.2645
+false,char,6,'lon',2.9724
+false,char,7,'tly',2.9097
+false,char,8,'tev',2.8654
+false,char,9,'hing ',2.8499
+false,char,10,'care)',2.8461
+false,char,11,'omes.',2.8184
+false,char,12,'and. ',2.7864
+false,char,13,'and.',2.6895
+false,char,14,'oil. ',2.683
+false,char,15,'vol',2.6662
+false,char,16,'kin',2.6445
+false,char,17,'at. ',2.63
+false,char,18,'12.',2.5877
+false,char,19,'irs.',2.5442
+false,char,20,'ked',2.5428
+false,char,21,'rpe',2.5405
+false,char,22,'land.',2.5347
+false,char,23,'''',2.5199
+false,char,24,'als. ',2.5099
+false,char,25,'arp',2.5002
+false,char,26,''s ',2.4887
+false,char,27,'n'',2.4784
+false,char,28,'ame. ',2.4766
+false,char,29,'n's ',2.4456
+false,char,30,'ame.',2.4171
+barely-true,word,1,spending in,8.3314
+barely-true,word,2,it will,7.3095
+barely-true,word,3,obama thinks,6.4282
+barely-true,word,4,island has,5.8451
+barely-true,word,5,people to,5.7127
+barely-true,word,6,arent,5.6578
+barely-true,word,7,keep unemployment,5.6542
+barely-true,word,8,million from,5.6346
+barely-true,word,9,seven years,5.6049
+barely-true,word,10,any state,5.601
+barely-true,word,11,that we,5.537
+barely-true,word,12,trillion in,5.4962
+barely-true,word,13,down the,5.4576
+barely-true,word,14,administration spent,5.4415
+barely-true,word,15,has proposed,5.3581
+barely-true,word,16,the financial,5.3244
+barely-true,word,17,clear,5.3127
+barely-true,word,18,to stop,5.2402
+barely-true,word,19,romney wants,5.2284
+barely-true,word,20,received any,5.1252
+barely-true,word,21,in place,5.0506
+barely-true,word,22,law that,5.0175
+barely-true,word,23,unemployment under,4.9856
+barely-true,word,24,tax on,4.9436
+barely-true,word,25,of those,4.8605
+barely-true,word,26,we,4.8536
+barely-true,word,27,lost their,4.8515
+barely-true,word,28,funded pension,4.8498
+barely-true,word,29,on gas,4.8484
+barely-true,word,30,travel,4.7973
+barely-true,char,1,'ice ',3.3484
+barely-true,char,2,'ul',3.2939
+barely-true,char,3,'-f',3.1858
+barely-true,char,4,' 7',3.1226
+barely-true,char,5,'tion.',3.0128
+barely-true,char,6,' em',2.9726
+barely-true,char,7,'le',2.9469
+barely-true,char,8,'ia.',2.9425
+barely-true,char,9,' car',2.8799
+barely-true,char,10,'fe. ',2.864
+barely-true,char,11,"'t,'",2.8524
+barely-true,char,12,' 8 ',2.7779
+barely-true,char,13,'fe.',2.7593
+barely-true,char,14,'ca',2.7493
+barely-true,char,15,'5.',2.7065
+barely-true,char,16,'rns ',2.6576
+barely-true,char,17,"'""s'",2.6576
+barely-true,char,18,"' ""s'",2.6576
+barely-true,char,19,'ke ',2.6356
+barely-true,char,20,'re',2.6285
+barely-true,char,21,'reu',2.6281
+barely-true,char,22,'az',2.6244
+barely-true,char,23,'tate-',2.6243
+barely-true,char,24,'fl',2.6201
+barely-true,char,25,"'t, '",2.6131
+barely-true,char,26,"'ist,'",2.5973
+barely-true,char,27,"'ist, '",2.5973
+barely-true,char,28,'fle',2.5895
+barely-true,char,29,"'c, '",2.5882
+barely-true,char,30,"'c,'",2.5882
+half-true,word,1,jobs to,7.1485
+half-true,word,2,but in,6.497
+half-true,word,3,was elected,5.6958
+half-true,word,4,said he,5.6836
+half-true,word,5,up to,5.5789
+half-true,word,6,is in,5.5449
+half-true,word,7,unemployment is,5.5421
+half-true,word,8,taxed states,5.433
+half-true,word,9,billion year,5.3645
+half-true,word,10,percent to,5.3156
+half-true,word,11,from new,5.2936
+half-true,word,12,than any,5.2732
+half-true,word,13,money from,5.2411
+half-true,word,14,gas taxes,5.1552
+half-true,word,15,put,5.0661
+half-true,word,16,says sen,5.0651
+half-true,word,17,for education,5.0583
+half-true,word,18,highest unemployment,5.0429
+half-true,word,19,state to,5.0187
+half-true,word,20,of us,4.9749
+half-true,word,21,if they,4.9612
+half-true,word,22,obama supports,4.9073
+half-true,word,23,care bill,4.9049
+half-true,word,24,more for,4.8491
+half-true,word,25,obamas stimulus,4.8308
+half-true,word,26,even supported,4.8163
+half-true,word,27,without background,4.8034
+half-true,word,28,and president,4.7995
+half-true,word,29,in november,4.7966
+half-true,word,30,budget by,4.7784
+half-true,char,1,'-b',3.9744
+half-true,char,2,'ende',3.801
+half-true,char,3,' .',3.4044
+half-true,char,4,'sca',3.3365
+half-true,char,5,' 3 ',3.3133
+half-true,char,6,'ene',3.1486
+half-true,char,7,'har',3.1319
+half-true,char,8,'0-',3.1301
+half-true,char,9,"'sion,'",3.1111
+half-true,char,10,' . ',3.0771
+half-true,char,11,'p ',2.9997
+half-true,char,12,"'ut.""'",2.9768
+half-true,char,13,"'ut."" '",2.9768
+half-true,char,14,'4 ',2.8627
+half-true,char,15,'60. ',2.8339
+half-true,char,16,'60.',2.8339
+half-true,char,17,'rida ',2.8277
+half-true,char,18,'rton',2.7871
+half-true,char,19,'t-t',2.7723
+half-true,char,20,"' 6,'",2.7706
+half-true,char,21,'agn',2.7616
+half-true,char,22,'mog',2.7604
+half-true,char,23,'rto',2.7587
+half-true,char,24,'$70',2.754
+half-true,char,25,' $70',2.754
+half-true,char,26,'rin',2.7345
+half-true,char,27,'na ',2.7049
+half-true,char,28,'cher ',2.696
+half-true,char,29,' h',2.674
+half-true,char,30,'va',2.6602
+mostly-true,word,1,in five,6.5408
+mostly-true,word,2,country has,6.3886
+mostly-true,word,3,people will,5.9568
+mostly-true,word,4,of african,5.9559
+mostly-true,word,5,crist raised,5.8651
+mostly-true,word,6,have very,5.7492
+mostly-true,word,7,and even,5.584
+mostly-true,word,8,says jeff,5.543
+mostly-true,word,9,listed,5.4371
+mostly-true,word,10,country in,5.4233
+mostly-true,word,11,it did,5.3453
+mostly-true,word,12,education in,5.338
+mostly-true,word,13,under rick,5.3072
+mostly-true,word,14,of its,5.306
+mostly-true,word,15,reforms,5.2193
+mostly-true,word,16,time in,5.1898
+mostly-true,word,17,immigrants are,5.1531
+mostly-true,word,18,says donald,5.1334
+mostly-true,word,19,half of,5.0884
+mostly-true,word,20,americans support,5.0528
+mostly-true,word,21,last few,5.0047
+mostly-true,word,22,florida has,4.9865
+mostly-true,word,23,senator in,4.9279
+mostly-true,word,24,the death,4.8964
+mostly-true,word,25,of private,4.8637
+mostly-true,word,26,for million,4.8313
+mostly-true,word,27,texas passed,4.8093
+mostly-true,word,28,year for,4.7368
+mostly-true,word,29,tax cuts,4.6664
+mostly-true,word,30,americans lose,4.6531
+mostly-true,char,1,'l. ',3.9531
+mostly-true,char,2,'l.',3.913
+mostly-true,char,3,'ely',3.4297
+mostly-true,char,4,'ans ',3.3544
+mostly-true,char,5,'s... ',3.2533
+mostly-true,char,6,'$4 ',3.2335
+mostly-true,char,7,' $4 ',3.2335
+mostly-true,char,8,'-te',3.1613
+mostly-true,char,9,'o.',3.1437
+mostly-true,char,10,'is.',3.1399
+mostly-true,char,11,'ail.',3.1145
+mostly-true,char,12,'ans',3.0913
+mostly-true,char,13,'pi',3.0575
+mostly-true,char,14,"'tes, '",2.9685
+mostly-true,char,15,"'tes,'",2.9413
+mostly-true,char,16,'king.',2.9347
+mostly-true,char,17,' 2 ',2.9325
+mostly-true,char,18,'kers.',2.9168
+mostly-true,char,19,' 60',2.8644
+mostly-true,char,20,'ely ',2.8401
+mostly-true,char,21,'y) ',2.8381
+mostly-true,char,22,'ne-',2.8347
+mostly-true,char,23,'..',2.714
+mostly-true,char,24,'ens.',2.714
+mostly-true,char,25,'pea',2.7137
+mostly-true,char,26,'red. ',2.6904
+mostly-true,char,27,' owe',2.6515
+mostly-true,char,28,'ders.',2.6159
+mostly-true,char,29,'ses',2.6118
+mostly-true,char,30,'orms',2.5957
+true,word,1,wages have,6.1006
+true,word,2,federal minimum,5.9299
+true,word,3,and gas,5.8955
+true,word,4,sponsored legislation,5.8929
+true,word,5,deporting,5.7667
+true,word,6,tuition for,5.7577
+true,word,7,fund is,5.5596
+true,word,8,on immigration,5.5355
+true,word,9,has never,5.5263
+true,word,10,if you,5.4795
+true,word,11,has voted,5.4094
+true,word,12,the supreme,5.2214
+true,word,13,voted against,5.1373
+true,word,14,obama said,5.1139
+true,word,15,about jobs,5.0643
+true,word,16,helped to,5.0635
+true,word,17,she is,5.0329
+true,word,18,reduced the,5.0114
+true,word,19,sen obama,4.9527
+true,word,20,in oregon,4.9497
+true,word,21,enough to,4.8963
+true,word,22,is down,4.8565
+true,word,23,from education,4.8229
+true,word,24,as president,4.809
+true,word,25,security is,4.7765
+true,word,26,in senate,4.7133
+true,word,27,day,4.6682
+true,word,28,affect,4.6504
+true,word,29,ive got,4.6436
+true,word,30,wealth,4.6349
+true,char,1,"'"" '",4.1855
+true,char,2,"'."" '",3.8618
+true,char,3,"'.""'",3.8618
+true,char,4,"' ""'",3.4172
+true,char,5,'ild ',3.3503
+true,char,6,'ives ',3.0645
+true,char,7,'tors',3.0316
+true,char,8,"'ies.""'",3.0057
+true,char,9,'ate. ',2.935
+true,char,10,'tors ',2.8977
+true,char,11,'7 ',2.8568
+true,char,12,'n) ',2.8398
+true,char,13,'ning.',2.73
+true,char,14,'25 ',2.6379
+true,char,15,'ain ',2.6134
+true,char,16,'oke',2.6005
+true,char,17,'ths ',2.5317
+true,char,18,'ks. ',2.5144
+true,char,19,'ons.',2.5102
+true,char,20,'.7',2.4961
+true,char,21,'hio ',2.4948
+true,char,22,'ohio ',2.4948
+true,char,23,'red ',2.4869
+true,char,24,'ip',2.4679
+true,char,25,'tial ',2.4563
+true,char,26,'no.',2.4311
+true,char,27,'ate.',2.4279
+true,char,28,'58',2.4234
+true,char,29,'fect ',2.42
+true,char,30,'ve-',2.4166

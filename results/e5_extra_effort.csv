@@ -1,0 +1,19 @@
+dataset,step,run,reference,macro_f1,macro_f1_sd,seeds,reference_macro_f1,gain,gain_se,p_holm,status
+covid,Optuna tuning,deberta_v3_base_covid_tuned,deberta_v3_base_covid,0.9722,0.0003,3.0,0.9711,0.0011,0.0022,,measured
+covid,+ speaker metadata,,deberta_v3_base_covid_tuned,,,,,,,,not applicable
+covid,+ evidence sentences,,deberta_v3_base_covid_tuned,,,,,,,,not applicable
+covid,+ class weights,deberta_v3_base_covid_tuned_cw,deberta_v3_base_covid_tuned,0.9708,0.0003,3.0,0.9722,-0.0014,0.0002,,measured
+covid,domain model instead,covid_twitter_bert_covid,deberta_v3_base_covid_tuned,0.9805,0.002,3.0,0.9722,0.0083,0.0011,,measured
+covid,top-3 ensemble instead,ensemble_top3_covid,deberta_v3_base_covid_tuned,,,,,,,,not run yet
+liar,Optuna tuning,deberta_v3_base_liar_tuned,deberta_v3_base_liar,0.2753,0.0114,3.0,0.2778,-0.0025,0.0119,,measured
+liar,+ speaker metadata,deberta_v3_base_liar_tuned_meta,deberta_v3_base_liar_tuned,0.2962,0.0133,3.0,0.2753,0.0208,0.0101,,measured
+liar,+ evidence sentences,,deberta_v3_base_liar_tuned,,,,,,,,not applicable
+liar,+ class weights,deberta_v3_base_liar_tuned_cw,deberta_v3_base_liar_tuned,0.2768,0.0113,3.0,0.2753,0.0015,0.0092,,measured
+liar,domain model instead,,deberta_v3_base_liar_tuned,,,,,,,,not applicable
+liar,top-3 ensemble instead,ensemble_top3_liar,deberta_v3_base_liar_tuned,,,,,,,,not run yet
+pubhealth,Optuna tuning,deberta_v3_base_pubhealth_tuned,deberta_v3_base_pubhealth,0.5035,0.0159,3.0,0.4648,0.0388,0.0602,,measured
+pubhealth,+ speaker metadata,,deberta_v3_base_pubhealth_tuned,,,,,,,,not applicable
+pubhealth,+ evidence sentences,deberta_v3_base_pubhealth_tuned_evidence,deberta_v3_base_pubhealth_tuned,0.562,0.0244,3.0,0.5035,0.0585,0.0168,,measured
+pubhealth,+ class weights,deberta_v3_base_pubhealth_tuned_cw,deberta_v3_base_pubhealth_tuned,0.5353,0.0083,3.0,0.5035,0.0318,0.0103,,measured
+pubhealth,domain model instead,scibert_pubhealth,deberta_v3_base_pubhealth_tuned,0.5087,0.0168,3.0,0.5035,0.0052,0.0133,,measured
+pubhealth,top-3 ensemble instead,ensemble_top3_pubhealth,deberta_v3_base_pubhealth_tuned,,,,,,,,not run yet

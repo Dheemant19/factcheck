@@ -106,13 +106,20 @@ def objective(trial: optuna.Trial, base: dict) -> float:
     params = sample_params(trial, base["data"]["dataset"])
     cfg = apply_params(base, params)
     cfg["run"]["name"] = f"{base['run']['name']}_trial{trial.number}"
+    summary, out_of_memory = None, None
     try:
         summary = train_encoder(cfg, callbacks=[ReportToOptuna(trial)], save=False)
     except optuna.TrialPruned:
-        summary = None
-    # Free the trial's model before the next one starts (the exception kept it alive).
+        pass
+    except torch.cuda.OutOfMemoryError as e:
+        out_of_memory = str(e)  # only the message: the traceback holds the trial's tensors
+    # Free the trial's model before the next one starts. The caught exception kept it alive;
+    # leaving the except block dropped it, so it can go now (also after running out of memory).
     gc.collect()
     torch.cuda.empty_cache()
+    if out_of_memory is not None:
+        # A fresh error with no old traceback; study.optimize(catch=...) fails this trial only.
+        raise torch.cuda.OutOfMemoryError(out_of_memory)
     if summary is None:
         raise optuna.TrialPruned()
     for key in ("best_epoch", "epochs_run", "train_seconds", "peak_gpu_mem_mb", "trainable_params"):

@@ -1,0 +1,241 @@
+label,kind,rank,feature,weight
+false,word,1,the,1.1912
+false,word,2,is,1.1871
+false,word,3,was,0.9915
+false,word,4,are,0.8725
+false,word,5,obama,0.8138
+false,word,6,the coronavirus,0.7814
+false,word,7,or,0.738
+false,word,8,post says,0.7312
+false,word,9,to the,0.7093
+false,word,10,that the,0.6902
+false,word,11,her,0.6872
+false,word,12,the fda,0.6829
+false,word,13,him,0.6706
+false,word,14,gates,0.6647
+false,word,15,facebook,0.6579
+false,word,16,if,0.6208
+false,word,17,died,0.5851
+false,word,18,any,0.5811
+false,word,19,the cdc,0.5794
+false,word,20,an,0.5785
+false,word,21,election,0.5781
+false,word,22,ingredients,0.5749
+false,word,23,the flu,0.5733
+false,word,24,whether,0.5721
+false,word,25,in one,0.5687
+false,word,26,2017,0.5674
+false,word,27,viral image,0.5659
+false,word,28,device,0.5559
+false,word,29,facebook post,0.5539
+false,word,30,your,0.552
+false,char,1,' a ',1.5113
+false,char,2,"' ""'",1.4834
+false,char,3,"'"" '",1.3807
+false,char,4,'a ',0.9914
+false,char,5,"'.""'",0.8659
+false,char,6,"'."" '",0.7998
+false,char,7,'the',0.7522
+false,char,8,' a',0.7327
+false,char,9,'is ',0.6001
+false,char,10,'e ',0.5853
+false,char,11,' the',0.5485
+false,char,12,' th',0.5148
+false,char,13,'ed',0.512
+false,char,14,' im',0.5058
+false,char,15,'d ',0.5052
+false,char,16,'y ',0.4999
+false,char,17,"'""n'",0.4997
+false,char,18,'dy ',0.4958
+false,char,19,' or',0.4909
+false,char,20,'c ',0.4788
+false,char,21,"'e."" '",0.4718
+false,char,22,'th',0.465
+false,char,23,'asi',0.452
+false,char,24,'ete',0.4512
+false,char,25,"'e.""'",0.4509
+false,char,26,"' ""the'",0.4509
+false,char,27,'he ',0.4452
+false,char,28,'ed ',0.4387
+false,char,29,'the ',0.4383
+false,char,30,'cr',0.4381
+mixture,word,1,diet,1.0648
+mixture,word,2,could be,1.0062
+mixture,word,3,is for,0.9915
+mixture,word,4,us patent,0.9155
+mixture,word,5,list,0.9125
+mixture,word,6,safe,0.8902
+mixture,word,7,can detect,0.8196
+mixture,word,8,patent,0.7936
+mixture,word,9,make,0.7921
+mixture,word,10,flu vaccine,0.7912
+mixture,word,11,admitted,0.7657
+mixture,word,12,shows an,0.7519
+mixture,word,13,use in,0.7393
+mixture,word,14,rape,0.7241
+mixture,word,15,benefits,0.7196
+mixture,word,16,meme,0.7172
+mixture,word,17,control,0.6997
+mixture,word,18,works,0.6989
+mixture,word,19,new research,0.6968
+mixture,word,20,looked,0.6931
+mixture,word,21,failed,0.6923
+mixture,word,22,50 percent,0.6865
+mixture,word,23,news for,0.6821
+mixture,word,24,may delay,0.677
+mixture,word,25,stomach,0.6622
+mixture,word,26,rapidly,0.6621
+mixture,word,27,used to,0.6547
+mixture,word,28,for the,0.6538
+mixture,word,29,and new,0.6519
+mixture,word,30,refused,0.6502
+mixture,char,1,' (',0.7301
+mixture,char,2,'y ',0.6336
+mixture,char,3,'tion ',0.6098
+mixture,char,4,'ank',0.5963
+mixture,char,5,') ',0.5577
+mixture,char,6,'ero',0.5344
+mixture,char,7,'ion ',0.5272
+mixture,char,8,'nk',0.503
+mixture,char,9,'s? ',0.4966
+mixture,char,10,'pr',0.4966
+mixture,char,11,"', '",0.4724
+mixture,char,12,'dar',0.4671
+mixture,char,13,'roi',0.4635
+mixture,char,14,'rie',0.4625
+mixture,char,15,'ced',0.4558
+mixture,char,16,'pro',0.4524
+mixture,char,17,'essi',0.4515
+mixture,char,18,' 20',0.4493
+mixture,char,19,'ry ',0.4442
+mixture,char,20,'ro',0.4423
+mixture,char,21,'s?',0.4381
+mixture,char,22,'20',0.4365
+mixture,char,23,'et ',0.4352
+mixture,char,24,'cu',0.4348
+mixture,char,25,'shi',0.4335
+mixture,char,26,'ced ',0.4313
+mixture,char,27,'ros',0.4312
+mixture,char,28,'nk ',0.4306
+mixture,char,29,' diet',0.4225
+mixture,char,30,'roid',0.4218
+true,word,1,fight,0.7738
+true,word,2,at,0.7281
+true,word,3,some,0.7172
+true,word,4,uk,0.6876
+true,word,5,report,0.6613
+true,word,6,mental health,0.6548
+true,word,7,science,0.6465
+true,word,8,us,0.6141
+true,word,9,often,0.6123
+true,word,10,gene,0.6122
+true,word,11,case,0.5773
+true,word,12,ebola,0.5646
+true,word,13,of the,0.5625
+true,word,14,vaping,0.5571
+true,word,15,france,0.5542
+true,word,16,fitness,0.5517
+true,word,17,coronavirus,0.5425
+true,word,18,may be,0.5371
+true,word,19,over,0.5323
+true,word,20,dies,0.5285
+true,word,21,eu,0.5227
+true,word,22,britain,0.5192
+true,word,23,medical marijuana,0.5171
+true,word,24,state,0.5169
+true,word,25,county,0.5143
+true,word,26,trials,0.5133
+true,word,27,court,0.5107
+true,word,28,debate,0.5011
+true,word,29,health,0.4986
+true,word,30,california,0.4963
+true,char,1,'. ',3.3384
+true,char,2,'s. ',1.3584
+true,char,3,'e. ',1.107
+true,char,4,': ',1.0684
+true,char,5,'s.',0.9972
+true,char,6,'y. ',0.9354
+true,char,7,'y.',0.7713
+true,char,8,'e.',0.7707
+true,char,9,'t. ',0.7378
+true,char,10,'t.',0.6281
+true,char,11,"', '",0.607
+true,char,12,'l.',0.5869
+true,char,13,'g. ',0.5816
+true,char,14,'tudy.',0.5655
+true,char,15,'udy.',0.5655
+true,char,16,'h. ',0.5505
+true,char,17,'l. ',0.5475
+true,char,18,'n.',0.5436
+true,char,19,'n. ',0.5232
+true,char,20,'dy.',0.4959
+true,char,21,'udy. ',0.4948
+true,char,22,'g.',0.4925
+true,char,23,'er. ',0.4848
+true,char,24,'k. ',0.4673
+true,char,25,'h.',0.4652
+true,char,26,'er.',0.4429
+true,char,27,''. ',0.4307
+true,char,28,''.',0.4307
+true,char,29,'d. ',0.4265
+true,char,30,'dy. ',0.4144
+unproven,word,1,or,1.6242
+unproven,word,2,can,1.0845
+unproven,word,3,in vaccines,1.0773
+unproven,word,4,causing,1.0442
+unproven,word,5,an,0.9848
+unproven,word,6,have closed,0.9554
+unproven,word,7,and,0.9237
+unproven,word,8,tolerance,0.9099
+unproven,word,9,vaccines and,0.8962
+unproven,word,10,closed,0.8786
+unproven,word,11,and is,0.8774
+unproven,word,12,coconut oil,0.8685
+unproven,word,13,brown,0.8397
+unproven,word,14,blue,0.8327
+unproven,word,15,are more,0.8219
+unproven,word,16,paid,0.818
+unproven,word,17,is in,0.8107
+unproven,word,18,properties,0.7885
+unproven,word,19,miraculous,0.768
+unproven,word,20,pilot,0.7545
+unproven,word,21,slave,0.7512
+unproven,word,22,five,0.7511
+unproven,word,23,longer than,0.7497
+unproven,word,24,warm water,0.7495
+unproven,word,25,cat,0.7438
+unproven,word,26,female,0.7391
+unproven,word,27,his,0.7352
+unproven,word,28,migraine headaches,0.7348
+unproven,word,29,used in,0.7281
+unproven,word,30,2018,0.7272
+unproven,char,1,' a ',0.9225
+unproven,char,2,'nh',0.67
+unproven,char,3,' a',0.6662
+unproven,char,4,'le ',0.651
+unproven,char,5,'le',0.629
+unproven,char,6,'0 ',0.6263
+unproven,char,7,'ger',0.5665
+unproven,char,8,'bed',0.5617
+unproven,char,9,'20',0.5541
+unproven,char,10,' sto',0.5289
+unproven,char,11,'nd',0.5284
+unproven,char,12,'man',0.5257
+unproven,char,13,'18',0.5204
+unproven,char,14,'tole',0.5196
+unproven,char,15,'fr',0.5047
+unproven,char,16,' or ',0.5025
+unproven,char,17,'a ',0.5002
+unproven,char,18,'lue ',0.4973
+unproven,char,19,'bro',0.4943
+unproven,char,20,' caus',0.4885
+unproven,char,21,' can ',0.4862
+unproven,char,22,'r-',0.4834
+unproven,char,23,'us',0.481
+unproven,char,24,' eate',0.4682
+unproven,char,25,' it ',0.4661
+unproven,char,26,'int',0.4607
+unproven,char,27,'cr',0.4595
+unproven,char,28,'temp',0.4586
+unproven,char,29,'sing ',0.457
+unproven,char,30,'des',0.456

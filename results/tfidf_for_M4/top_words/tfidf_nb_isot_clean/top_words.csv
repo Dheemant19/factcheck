@@ -1,0 +1,61 @@
+label,kind,rank,feature,weight
+real,word,1,rakhine,7.2893
+real,word,2,puigdemont,7.2076
+real,word,3,president tayyip,7.1486
+real,word,4,factbox,7.1098
+real,word,5,in myanmar,7.0274
+real,word,6,rakhine state,6.9355
+real,word,7,editing by,6.921
+real,word,8,representatives speaker,6.9196
+real,word,9,the rohingya,6.8537
+real,word,10,rajoy,6.846
+real,word,11,fdp,6.834
+real,word,12,juncker,6.7772
+real,word,13,suu,6.7739
+real,word,14,kyi,6.7685
+real,word,15,suu kyi,6.7669
+real,word,16,by sap,6.7508
+real,word,17,independently created,6.7508
+real,word,18,was independently,6.7508
+real,word,19,zuma,6.7477
+real,word,20,euro zone,6.7469
+real,word,21,rohingya,6.7106
+real,word,22,brexit talks,6.7065
+real,word,23,mnangagwa,6.7039
+real,word,24,ria news,6.6988
+real,word,25,erdogan said,6.674
+real,word,26,carles,6.6363
+real,word,27,in rakhine,6.6325
+real,word,28,in catalonia,6.6197
+real,word,29,carles puigdemont,6.6008
+real,word,30,000 rohingya,6.5867
+fake,word,1,video below,7.4644
+fake,word,2,via youtube,7.3547
+fake,word,3,js,7.3229
+fake,word,4,boiler room,7.2124
+fake,word,5,acr,7.11
+fake,word,6,fjs,7.0466
+fake,word,7,this woman,7.0381
+fake,word,8,antifa,6.9803
+fake,word,9,daily caller,6.9727
+fake,word,10,hilariously,6.968
+fake,word,11,tucker carlson,6.9564
+fake,word,12,cking,6.8917
+fake,word,13,entire story,6.8526
+fake,word,14,js fjs,6.8369
+fake,word,15,the segment,6.8335
+fake,word,16,henningsen,6.7699
+fake,word,17,tweeted out,6.7437
+fake,word,18,unreal,6.7336
+fake,word,19,the boiler,6.7231
+fake,word,20,judge jeanine,6.7165
+fake,word,21,more daily,6.7159
+fake,word,22,patrick henningsen,6.7094
+fake,word,23,cdata,6.6883
+fake,word,24,rapist,6.6787
+fake,word,25,cnn host,6.6344
+fake,word,26,temper tantrum,6.6313
+fake,word,27,alternate current,6.584
+fake,word,28,current radio,6.584
+fake,word,29,whined,6.5812
+fake,word,30,political animals,6.5295

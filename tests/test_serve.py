@@ -54,7 +54,18 @@ def test_prediction_is_a_distribution_over_the_dataset_labels(tmp_path):
     assert sum(pred.label_probs.values()) == pytest.approx(1.0, abs=1e-5)
     fake = sum(pred.label_probs[info.labels[i]] for i in info.fake_label_ids)
     assert pred.fake_prob == pytest.approx(fake)
+    true = sum(pred.label_probs[info.labels[i]] for i in info.real_label_ids)
+    assert pred.true_prob == pytest.approx(true)
     assert pred.seconds > 0
+
+
+def test_true_prob_leaves_out_the_labels_that_are_neither(tmp_path):
+    # PUBHEALTH: mixture and unproven count as neither true nor false, so P(true) is not
+    # 1 - P(false) (T44 review: the app called a mostly-"mixture" claim likely true).
+    pred = serve.Classifier(save_run(tmp_path, "pubhealth"), device="cpu").predict(CLAIM)
+    neither = pred.label_probs["mixture"] + pred.label_probs["unproven"]
+    assert pred.true_prob == pytest.approx(pred.label_probs["true"])
+    assert pred.true_prob + pred.fake_prob + neither == pytest.approx(1.0, abs=1e-5)
 
 
 def test_evidence_runs_read_the_claim_with_its_evidence(tmp_path):

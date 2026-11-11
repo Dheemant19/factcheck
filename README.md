@@ -237,6 +237,39 @@ seed and split; re-running a config replaces its rows). Per-row probabilities go
 `results/predictions/<run>/seed<N>/` (not committed) for ensembles, significance tests and
 calibration curves. Spec targets live in `configs/specs.yaml`.
 
+### Ensembles, significance and the extra-effort chart (T31, T32)
+
+```bash
+bash jobs/t31_ensemble.sh      # tests + E5 chart; run where results/predictions/ is complete
+python -m factcheck.ensemble   # top-3 soft vote per dataset + paired bootstrap / McNemar tests
+python -m factcheck.ensemble --skip-ensemble   # tests only, runs.csv untouched (after the freeze)
+python -m factcheck.extra_effort   # E5 table and chart from runs.csv
+```
+
+`factcheck.ensemble` averages each run's seeds, picks the 3 best models per dataset on
+validation macro-F1 (preferring a different backbone within 0.01), soft-votes them and logs
+`ensemble_top3_<dataset>` to `runs.csv`. It then tests the planned comparisons (ensemble vs
+best single model, best encoder vs BERT-base and vs the best Qwen3-8B mode, LoRA vs full
+fine-tuning, each extra-effort step) with a 10,000-resample paired bootstrap and McNemar's
+test, Holm-corrected, in `results/significance.csv`. `factcheck.extra_effort` writes
+`results/e5_extra_effort.{csv,md}` and `results/figures/e5_extra_effort.png`. The reasoning
+is in `docs/m3_ensemble_and_extras.md`.
+
+### LDA topics and the results freeze (T56, T43)
+
+```bash
+python -m factcheck.topics                 # LDA by label on ISOT and PUBHEALTH (about 7 min, CPU)
+python scripts/find_shortcuts.py --headline    # ISOT label from headline capitalisation alone
+python scripts/freeze_results.py --check   # completeness report for runs.csv
+python scripts/freeze_results.py           # copy to results/final/ with its SHA-256 (T43)
+```
+
+`factcheck.topics` writes `results/topics/` and `results/figures/t56_lda_topics.png`: on
+cleaned ISOT the topics alone predict real vs fake at 0.89 macro-F1, on PUBHEALTH barely
+above guessing. The frozen results are `results/final/runs_final.csv`; `MANIFEST.md` next to
+it holds the hash, the commit and the warnings at freeze time. M3's reading of all of this is
+in `docs/m3_interpretation.md`.
+
 ## The app
 
 ```bash

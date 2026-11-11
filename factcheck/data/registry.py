@@ -52,6 +52,11 @@ class DatasetInfo:
         """Class ids that count as false, e.g. for P(false) in the app."""
         return [i for i, label in enumerate(self.labels) if label in self.fake_labels]
 
+    @property
+    def real_label_ids(self) -> list[int]:
+        """Class ids that count as true, e.g. for P(true) in the app."""
+        return [i for i, label in enumerate(self.labels) if label in self.real_labels]
+
     def binary_label(self, label_name: str) -> int:
         """1 = false/fake, 0 = true/real, -1 = left out of binary (cross-domain) tests."""
         if label_name in self.fake_labels:

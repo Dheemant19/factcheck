@@ -1,0 +1,61 @@
+label,kind,rank,feature,weight
+real,word,1,reuters,34.2132
+real,word,2,said,18.5862
+real,word,3,washington reuters,15.1531
+real,word,4,said on,13.0976
+real,word,5,reuters the,9.7968
+real,word,6,washington,9.4596
+real,word,7,on tuesday,9.0421
+real,word,8,on wednesday,8.9694
+real,word,9,said in,8.4977
+real,word,10,president donald,8.3229
+real,word,11,on,8.2143
+real,word,12,on thursday,8.1547
+real,word,13,on friday,7.7031
+real,word,14,reuters president,7.5059
+real,word,15,on monday,7.412
+real,word,16,he said,6.953
+real,word,17,said the,6.7465
+real,word,18,republican,6.5823
+real,word,19,wednesday,6.5053
+real,word,20,nov,6.0374
+real,word,21,tuesday,5.948
+real,word,22,thursday,5.877
+real,word,23,told reuters,5.7585
+real,word,24,minister,5.5767
+real,word,25,its,5.2716
+real,word,26,in statement,4.8395
+real,word,27,presidential,4.7974
+real,word,28,had,4.7946
+real,word,29,friday,4.7323
+real,word,30,on sunday,4.6631
+fake,word,1,via,18.1954
+fake,word,2,video,15.6901
+fake,word,3,read more,11.2706
+fake,word,4,read,9.5393
+fake,word,5,image,9.1471
+fake,word,6,featured image,8.8273
+fake,word,7,just,8.8201
+fake,word,8,this,8.8105
+fake,word,9,featured,8.7336
+fake,word,10,gop,8.6494
+fake,word,11,obama,8.364
+fake,word,12,watch,8.1932
+fake,word,13,us,8.0832
+fake,word,14,president trump,8.0592
+fake,word,15,image via,7.8797
+fake,word,16,com,7.4128
+fake,word,17,the us,7.38
+fake,word,18,breaking,7.0976
+fake,word,19,hillary,6.8537
+fake,word,20,america,6.5712
+fake,word,21,mr,6.4856
+fake,word,22,getty,6.2708
+fake,word,23,getty images,6.0583
+fake,word,24,twitter com,6.0022
+fake,word,25,you,5.9611
+fake,word,26,here,5.9487
+fake,word,27,president obama,5.9128
+fake,word,28,is,5.8533
+fake,word,29,pic,5.7788
+fake,word,30,pic twitter,5.6824

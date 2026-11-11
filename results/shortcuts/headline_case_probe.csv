@@ -1,0 +1,2 @@
+probe,val_accuracy,val_macro_f1,majority_accuracy
+ISOT headline capitalisation only (2 numbers per article),0.9793,0.9791,0.5484

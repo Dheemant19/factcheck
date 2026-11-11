@@ -1,0 +1,11 @@
+topic,top_words,share_real,share_fake,fake_minus_real
+1,health trump president care donald clinton government plan,0.0998,0.1487,0.0489
+4,water child scientists better help ban air abuse,0.071,0.0774,0.0064
+9,states medical marijuana percent united police york law,0.0851,0.091,0.0059
+0,blood finds test home study group killed america,0.0816,0.0856,0.004
+8,health school mental doctors abortion planned florida care,0.0912,0.0944,0.0032
+2,obama hospital old baby barack hospitals administration stop,0.0788,0.0795,0.0007
+6,women world ebola food health hiv vaccine children,0.1017,0.0996,-0.0021
+3,cancer study drug risk treatment patients heart breast,0.1467,0.1431,-0.0036
+5,flu death rate heart outbreak disease day died,0.1034,0.0848,-0.0186
+7,coronavirus cases covid virus china life deaths reports,0.1407,0.0959,-0.0448
