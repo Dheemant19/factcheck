@@ -92,7 +92,10 @@ def load_climate_fever_scores() -> tuple[float, float, float]:
     pool_score = float(pool_row["macro_f1"].iloc[0]) if not pool_row.empty else 0.4295
 
     # 3. Gold Evidence / RAG
-    gold_row = cf[(cf["run_name"].str.contains("rag", case=False, na=False)) & (~cf["run_name"].str.contains("pool", case=False, na=False))]
+    gold_row = cf[
+        (cf["run_name"].str.contains("rag", case=False, na=False))
+        & (~cf["run_name"].str.contains("pool", case=False, na=False))
+    ]
     gold_score = float(gold_row["macro_f1"].iloc[0]) if not gold_row.empty else 0.4795
 
     return zs_score, pool_score, gold_score
@@ -105,9 +108,9 @@ def generate_climate_fever_plot() -> tuple[float, float, float]:
     sns.set_theme(style="whitegrid")
 
     modes = [
-        "No Evidence\n(Parametric Only)", 
-        "Open Search Evidence\n(bge-small Top-5)", 
-        "Gold Evidence\n(Dataset Provided)"
+        "No Evidence\n(Parametric Only)",
+        "Open Search Evidence\n(bge-small Top-5)",
+        "Gold Evidence\n(Dataset Provided)",
     ]
     scores = [zs, pool, gold]
     colors = ["#e74c3c", "#3498db", "#2ecc71"]
@@ -122,19 +125,24 @@ def generate_climate_fever_plot() -> tuple[float, float, float]:
         else:
             delta = yval - zs
             label = f"{yval:.3f}\n({delta:+.3f})"
-        
+
         ax.text(
-            bar.get_x() + bar.get_width() / 2.0, 
-            yval / 2.0, 
-            label, 
-            ha="center", 
-            va="center", 
-            color="white", 
-            fontweight="bold", 
-            fontsize=10
+            bar.get_x() + bar.get_width() / 2.0,
+            yval / 2.0,
+            label,
+            ha="center",
+            va="center",
+            color="white",
+            fontweight="bold",
+            fontsize=10,
         )
 
-    ax.set_title("Zero-Shot Climate-FEVER Extrapolation: Retrieval Bottleneck", fontsize=12, fontweight="bold", pad=12)
+    ax.set_title(
+        "Zero-Shot Climate-FEVER Extrapolation: Retrieval Bottleneck",
+        fontsize=12,
+        fontweight="bold",
+        pad=12,
+    )
     ax.set_ylabel("Macro-F1 Score", fontsize=11)
     ax.set_ylim(0.0, max(scores) + 0.12)
     ax.axhline(gold, color="#2ecc71", linestyle="--", alpha=0.5)
@@ -149,7 +157,9 @@ def generate_climate_fever_plot() -> tuple[float, float, float]:
     return zs, pool, gold
 
 
-def export_section_13_markdown(pivot_df: pd.DataFrame | None, cf_scores: tuple[float, float, float]) -> None:
+def export_section_13_markdown(
+    pivot_df: pd.DataFrame | None, cf_scores: tuple[float, float, float]
+) -> None:
     """Step 3: Export Section 13 Markdown report deliverable using dynamically loaded scores."""
     zs, pool, gold = cf_scores
     delta_pool = pool - zs
@@ -157,10 +167,26 @@ def export_section_13_markdown(pivot_df: pd.DataFrame | None, cf_scores: tuple[f
     pct_captured = (delta_pool / delta_gold * 100) if delta_gold > 0 else 39.0
 
     # Extract cross-domain numbers dynamically from pivot matrix
-    liar_pub = pivot_df.loc["liar", "pubhealth"] if (pivot_df is not None and "liar" in pivot_df.index and "pubhealth" in pivot_df.columns) else 0.5706
-    pub_liar = pivot_df.loc["pubhealth", "liar"] if (pivot_df is not None and "pubhealth" in pivot_df.index and "liar" in pivot_df.columns) else 0.5871
-    cov_liar = pivot_df.loc["covid", "liar"] if (pivot_df is not None and "covid" in pivot_df.index and "liar" in pivot_df.columns) else 0.3680
-    cov_pub = pivot_df.loc["covid", "pubhealth"] if (pivot_df is not None and "covid" in pivot_df.index and "pubhealth" in pivot_df.columns) else 0.3740
+    liar_pub = (
+        pivot_df.loc["liar", "pubhealth"]
+        if (pivot_df is not None and "liar" in pivot_df.index and "pubhealth" in pivot_df.columns)
+        else 0.5706
+    )
+    pub_liar = (
+        pivot_df.loc["pubhealth", "liar"]
+        if (pivot_df is not None and "pubhealth" in pivot_df.index and "liar" in pivot_df.columns)
+        else 0.5871
+    )
+    cov_liar = (
+        pivot_df.loc["covid", "liar"]
+        if (pivot_df is not None and "covid" in pivot_df.index and "liar" in pivot_df.columns)
+        else 0.3680
+    )
+    cov_pub = (
+        pivot_df.loc["covid", "pubhealth"]
+        if (pivot_df is not None and "covid" in pivot_df.index and "pubhealth" in pivot_df.columns)
+        else 0.3740
+    )
 
     markdown_content = f"""# Section 13: Interpreting the Models & Beyond Misinformation
 

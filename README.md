@@ -1,317 +1,309 @@
 # factcheck: Can deep learning catch misinformation?
 
-EE6405 group project (team of 5, due **Sun 15 Nov 2026, 11:59 pm**). We compare a Bi-LSTM,
-fine-tuned transformer encoders, LoRA and a retrieval-augmented 8B LLM on four misinformation
-datasets, explain why they decide what they decide, and show it in the Streamlit "Fact-Check
-Lab". The full plan is `Group_Project_Plan.html` (shared separately).
+EE6405 Natural Language Processing group project (team of 5, NTU, November 2026).
 
-Training, notebooks and the app all import this one package, every run is one YAML config,
-and every number lands in `results/runs.csv`.
+We compare traditional NLP, recurrent networks, transformer encoders and an 8B LLM on four
+misinformation datasets. We then work out **why** each model decides what it decides: top
+words, SHAP, LDA topics, shortcut removal, calibration, cross-dataset tests and significance
+tests. Everything runs from one Python package (`factcheck/`). Every run is one YAML config,
+every number in the report comes from one results file, and a Streamlit app (the "Fact-Check
+Lab") shows the models on new claims.
 
-## State of the repo
+| Family | Models |
+|---|---|
+| Traditional | TF-IDF + naive Bayes / logistic regression / linear SVM, averaged GloVe + SVM, kNN vote over sentence embeddings |
+| Recurrent | Bi-LSTM on GloVe, plus a plain RNN (with and without gradient clipping), a GRU and a one-way LSTM |
+| Encoders | DistilBERT, BERT, RoBERTa, DeBERTa-v3 (base and large), ModernBERT, COVID-Twitter-BERT, SciBERT; Optuna tuning; LoRA |
+| LLM | Qwen3-8B zero-shot, kNN few-shot, evidence RAG, and QLoRA fine-tuning |
 
-This is the skeleton. The layout follows plan Section 16; modules that are not written yet
-are stubs whose docstring names the owner and task. What works today:
-
-* `scripts/download_data.py`: downloads all five datasets (T02). **ISOT needs a Kaggle login.**
-* `scripts/check_env.py`, `scripts/smoke_test.py` and `jobs/setup_cluster.sh`: environment check, a tiny
-  DistilBERT training run, and GPU-server setup (T02). Tested machines are in `docs/environments.md`.
-* `app/app.py`: the Streamlit app, with designed empty states until models and results exist.
-* `factcheck.data`: `load_splits(name)` for all five datasets, with fixed split files (T03); the
-  `clean` variant without source shortcuts, and train rows that copy a test row excluded (T13).
-* `factcheck.retrieval`: embedding search over already fact-checked training claims and over
-  evidence sentences, and the kNN-vote baseline (`configs/knn/`) (T08).
-* `notebooks/01_eda.ipynb`: sizes, label balance, token lengths, duplicates, shortcuts (T09).
-* `factcheck.prompts` and `factcheck.inputs`: kNN and RAG prompts, claim + evidence pairs (T14),
-  and the `features` config switches for LIAR metadata and evidence (T15).
-
-## Who owns what
-
-| Member | Role | Owns |
+| Dataset | Task | Test rows |
 |---|---|---|
-| **M1 + M2** | Training team | `factcheck/models/`, `factcheck/train.py`, `factcheck/tune.py`, `configs/`, `jobs/`; dataset download and cluster setup (T02) |
-| **M3** | Data and retrieval lead | `factcheck/data/` (loaders, cleaning, fixed splits, shortcut removal), `factcheck/retrieval.py`, `notebooks/01_eda` |
-| **M4** | Evaluation and interpretation lead | `factcheck/evaluate.py`, `factcheck/results.py`, `factcheck/explain.py`, `notebooks/02_results`, `notebooks/03_interpretation` |
-| **M5** | Product and presentation lead | `app/`, this README, `docs/`, slides, video |
+| COVID-19 fake news (Patwa et al., 2021) | real vs fake tweets | 2,140 |
+| LIAR (Wang, 2017) | 6-way truthfulness of political claims | 1,283 |
+| PUBHEALTH (Kotonya & Toni, 2020) | 4-way health claims, with fact-check articles | 1,233 |
+| ISOT (Ahmed et al., 2017) | real (Reuters) vs fake news articles | 3,866 |
+| Climate-FEVER (Diggelmann et al., 2020) | zero-shot transfer only, no training | 1,535 |
 
-Task IDs (T01 to T51) and deadlines are in plan Section 20.
+## Main findings
+
+All numbers are test-set scores from the frozen results (`results/final/runs_final.csv`, git
+tag `v1.0-results`), averaged over seeds 13, 42 and 2026 where a run has three.
+
+1. **Word counts are hard to beat on the easy datasets.** TF-IDF + logistic regression scores
+   0.953 macro-F1 on COVID and 0.988 on cleaned ISOT, within 0.03 of the best model (0.980 and
+   1.000). On LIAR (0.237 vs 0.296) and PUBHEALTH (0.487 vs 0.562) the gap is larger, but every
+   model is low there.
+2. **ISOT measures the news source, not truth.** Removing 16 kinds of source fingerprint (the
+   Reuters dateline, image credits, embedded tweets and so on) only moves TF-IDF from 0.994 to
+   0.988 accuracy. LDA topics alone still predict the label at 0.885 macro-F1, and headline
+   capitalisation alone at 97.9% accuracy.
+3. **The models learn a dataset's style, not falsehood.** A WHO-style tweet saying "drinking
+   bleach helps stop the spread of #COVID19" is called true by TF-IDF. A true fact about the
+   206 bones of the human skeleton is called fake, with full confidence, by COVID-Twitter-BERT.
+4. **Evidence helps most.** Giving tuned DeBERTa-v3-base the five most relevant sentences of
+   the fact-check article lifts PUBHEALTH from 0.503 to 0.562. Speaker metadata lifts LIAR from
+   0.275 to 0.296, but as a prior about the speaker, not a check of the claim.
+5. **Few gaps survive a significance test.** With a paired bootstrap and McNemar's test,
+   Holm-corrected over 22 planned comparisons, the only macro-F1 gap beyond test-set noise is
+   DeBERTa-v3-large LoRA vs full fine-tuning on PUBHEALTH (-0.096).
+6. **Gates matter more than a second direction.** A GRU or one-way LSTM gets most of the way
+   from a plain RNN to the Bi-LSTM. The plain RNN loses through short, unstable training, not
+   through gradients vanishing.
+7. **Little transfers across datasets.** COVID models score below always guessing one class on
+   LIAR and PUBHEALTH.
+   On Climate-FEVER, Qwen3-8B gets 0.398 with no evidence, 0.429 with retrieved evidence and
+   0.479 with the gold evidence, so finding the evidence is the weak step.
+
+### Main results (test macro-F1, mean ± std over seeds)
+
+Within each family, the run with the best **validation** macro-F1 is shown, so the test set
+never picks a model. "det." marks deterministic runs, which were run once.
+
+| Family | COVID | LIAR | PUBHEALTH | ISOT (cleaned) |
+|---|---|---|---|---|
+| TF-IDF + NB / LR / SVM | 0.953 (det.) | 0.237 (det.) | 0.487 (det.) | 0.988 (det.) |
+| Averaged GloVe + SVM | 0.916 (det.) | 0.221 (det.) | 0.411 (det.) | 0.975 (det.) |
+| Bi-LSTM (GloVe) | 0.954 ± 0.004 | 0.242 ± 0.013 | 0.463 ± 0.021 | – |
+| kNN vote (bge-small) | 0.915 (det.) | 0.241 (det.) | 0.419 (det.) | 0.925 (det.) |
+| Qwen3-8B zero-shot | 0.806 (det.) | 0.179 (det.) | 0.275 (det.) | – |
+| Qwen3-8B kNN few-shot | 0.937 (det.) | 0.259 (det.) | 0.457 (det.) | – |
+| Base encoder | 0.966 ± 0.004 | 0.288 ± 0.007 | 0.496 ± 0.014 | 1.000 ± 0.000 |
+| Large / domain encoder | 0.980 ± 0.002 | 0.296 ± 0.012 | 0.509 ± 0.017 | 1.000 ± 0.000 |
+| Optuna-tuned DeBERTa-v3-base | 0.972 ± 0.000 | 0.275 ± 0.011 | 0.504 ± 0.016 | – |
+| Tuned + one extra (class weights / metadata / evidence) | 0.971 ± 0.000 | 0.296 ± 0.013 | 0.562 ± 0.024 | – |
+| Qwen3-8B QLoRA | 0.979 (1 seed) | 0.289 (1 seed) | 0.515 (1 seed) | 1.000 (1 seed) |
+
+The full table, with the run behind every cell, is `results/results_v1_table.md`. The
+specification targets S1 to S10 are in `results/t42_specs_context_table.csv`: all pass
+except S4, the PUBHEALTH macro-F1 target of 0.65 (best 0.562; the published SciBERT result is
+0.705).
+
+## Where to find what
+
+| Looking for | Where |
+|---|---|
+| Every run's scores (frozen) | `results/final/runs_final.csv`, hash and run counts in `results/final/MANIFEST.md` |
+| Figures used in the report and video | `results/figures/` |
+| Significance tests | `results/significance.csv` |
+| Extra-effort steps (tuning, metadata, evidence, class weights) | `results/e5_extra_effort.md` |
+| Shortcut study, LDA topics, recurrent-cell gradients | `results/shortcuts/`, `results/topics/`, `results/t55_gradients.csv` |
+| Cross-dataset and Climate-FEVER results | `results/cross_dataset.csv`, `results/t41_beyond_misinformation.md` |
+| What each finding means and what it cost | `docs/m1_interpretation.md`, `docs/m2_interpretation.md`, `docs/m3_interpretation.md`, `docs/m4_T33toT42_Note.md` |
+| Data decisions (ISOT cleanup, splits, shortcut rules, retrieval) | `docs/m3_isot_and_splits.md`, `docs/m3_retrieval_and_shortcuts.md`, `docs/m3_prompts_and_inputs.md` |
+| Code reviews between members | `docs/t44_review_*.md` |
+| Who did what | `docs/contribution_log.md` |
+| Machines the results were produced on | `docs/environments.md` |
 
 ## Setup
 
-You need Python 3.11 or newer (the pinned versions need it) and `pip`. Training needs an NVIDIA
-GPU; a CPU-only machine is enough for the app, the notebooks and the tests.
+You need Python 3.11 or newer and `pip`. Training the encoders and the LLM needs an NVIDIA GPU.
+A CPU-only machine is enough for the traditional baselines, the figures, the tests and the
+app with the TF-IDF model.
 
-**1. Create and activate a virtual environment** (or use conda, if that is what you have):
+**1. Create and activate a virtual environment:**
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate          # Windows PowerShell: .venv\Scripts\Activate.ps1
 ```
 
-**2. Install PyTorch for your machine.** The right build depends on your GPU and driver, so it
-is not in the requirements. Pick the command for your system on
-[pytorch.org/get-started](https://pytorch.org/get-started/locally/). For an NVIDIA GPU, run
-`nvidia-smi` first: the "CUDA Version" (newer drivers: "CUDA UMD Version") it shows is the
-newest CUDA build your driver supports, so pick a PyTorch build at or below it.
-Newer GPUs (RTX 50-series) need a CUDA 12.8 or newer build. For example:
+**2. Install PyTorch for your machine.** The right build depends on your GPU driver, so it is
+not in the requirements. Run `nvidia-smi` and pick a build at or below the CUDA version it
+shows from [pytorch.org/get-started](https://pytorch.org/get-started/locally/). RTX 50-series
+GPUs need a CUDA 12.8 or newer build. For example:
 
 ```bash
 pip install torch --index-url https://download.pytorch.org/whl/cu130   # NVIDIA, CUDA 13.0 build
-pip install torch --index-url https://download.pytorch.org/whl/cpu    # CPU only (Windows, Linux)
-pip install torch                                                     # macOS (Apple silicon uses MPS)
+pip install torch --index-url https://download.pytorch.org/whl/cpu    # CPU only
 ```
 
-**3. Install the project:**
+**3. Install the project and check the machine:**
 
 ```bash
 pip install -r requirements.txt    # pinned versions we tested, plus this package (editable)
-python scripts/check_env.py        # checks the GPU, bf16 and 4-bit support
-```
-
-**4. Prove the machine can train** (needs the COVID data, see Data below):
-
-```bash
+python scripts/check_env.py        # GPU, bf16 and 4-bit support
 python scripts/download_data.py covid
-python scripts/smoke_test.py       # tiny DistilBERT run, about a minute; --cpu without a GPU
+python scripts/smoke_test.py       # a one-minute DistilBERT run; prints PASS (--cpu without a GPU)
 ```
 
-It should print PASS (validation accuracy well above 0.80). Add your machine to
-`docs/environments.md`.
-
-`requirements.txt` pins the direct dependencies so runs reproduce; `requirements-lock.txt` is
-a full freeze of one working environment (Windows, CUDA 13.2) for reference. To install the
-latest compatible versions instead, use `pip install -e ".[all]"`, or a smaller set of extras
-such as `pip install -e ".[app]"` (see `pyproject.toml`).
-
-### On a shared GPU server
-
-The same steps work on any Linux GPU server. Clone the repo there and download data and
-models on the server itself rather than copying them over (copying over a VPN is slow):
-
-```bash
-git clone https://github.com/Dheemant19/factcheck.git && cd factcheck
-bash jobs/setup_cluster.sh         # optional: steps 1-3 above, picking torch from nvidia-smi
-```
-
-Long runs go in the job lists `jobs/gpu0.sh` to `jobs/gpu3.sh`, one per GPU (instructions at
-the top of each file).
+`requirements.txt` pins the direct dependencies; `requirements-lock.txt` is a full freeze of
+the environment the results were produced in.
 
 ## Data
 
 ```bash
 python scripts/download_data.py --list      # sources and sizes, downloads nothing
 python scripts/download_data.py             # all five datasets into data/raw/
-python scripts/download_data.py --glove     # GloVe 6B 300-d for the Bi-LSTM (862 MB)
+python scripts/download_data.py --glove     # GloVe 6B 300-d for the recurrent models (862 MB)
+python scripts/make_splits.py --check       # your download matches the committed splits
 ```
 
-**ISOT needs a Kaggle login.** Make a Kaggle account, create an API token (Settings > API >
-Create New Token), put `kaggle.json` in `~/.kaggle/` or set `KAGGLE_USERNAME` and `KAGGLE_KEY`
-(see `.env.example`), and `pip install kagglehub`. Or download the zip from
+**ISOT needs a Kaggle login.** Create an API token on Kaggle (Settings > API > Create New
+Token) and put `kaggle.json` in `~/.kaggle/`, or set `KAGGLE_USERNAME` and `KAGGLE_KEY` (see
+`.env.example`), then `pip install kagglehub`. You can also download the zip from
 [Kaggle](https://www.kaggle.com/datasets/clmentbisaillon/fake-and-real-news-dataset) and put
-`Fake.csv` and `True.csv` in `data/raw/isot/`. The other four datasets need no login.
+`Fake.csv` and `True.csv` in `data/raw/isot/`. The other datasets need no login.
 
-| Dataset | Source |
-|---|---|
-| D1 `covid` | authors' GitHub release (diptamath/covid_fake_news) |
-| D2 `liar` | UCSB zip (Wang, 2017) |
-| D3 `pubhealth` | Hugging Face `ImperialCollegeLondon/health_fact` |
-| D4 `isot` | Kaggle `clmentbisaillon/fake-and-real-news-dataset` (login needed) |
-| D5 `climate_fever` | Hugging Face `tdiggelm/climate_fever` (test only) |
+**Fixed splits.** Which row is in which split is committed in `data/splits/<dataset>.csv`, so
+every machine trains and tests on identical rows. Loading checks the raw data against it and
+fails loudly if they differ. COVID, LIAR and PUBHEALTH keep their official splits. ISOT is
+split 80/10/10, stratified, with seed 42.
 
-`data/` is not committed, except `data/splits/` (below).
-
-### Loading a dataset
+**Data decisions.**
+- PUBHEALTH: 41 rows with a broken label are dropped.
+- ISOT: 631 articles with an empty body are dropped (630 of them fake), then 5,609 exact
+  duplicates.
+- ISOT `clean` variant (`load_splits("isot", variant="clean")`): source fingerprints are
+  removed, one named rule each in `factcheck/data/shortcuts.py`.
+- Leakage: train rows that copy a validation or test row are excluded
+  (`data/splits/exclusions.csv`).
 
 ```python
 from factcheck.data import load_splits, get_dataset
 
 splits = load_splits("liar")                   # {"train": df, "validation": df, "test": df}
-splits = load_splits("isot", variant="clean")  # clean = source fingerprints removed (ISOT),
-                                               # URLs and @mentions masked (COVID)
-info = get_dataset("liar")                     # labels, label2id, fake_label_ids, max_length
+splits = load_splits("isot", variant="clean")  # source fingerprints removed
+info = get_dataset("liar")                     # labels, label2id, max_length, ...
 ```
 
-Every DataFrame starts with the same columns: `id`, `text` (model input), `text_raw` (as
-published), `label`, `label_name`, `binary_label` (1 = false/fake, 0 = true/real, -1 = not
-used in cross-domain tests) and `in_llm_subset`. Extra columns per dataset: `meta_*` (LIAR),
-`main_text` and `explanation` (PUBHEALTH), `evidence` (Climate-FEVER), `subject` and `date`
-(ISOT). **Never feed `explanation`, `subject` or `date` to a model**: they give the answer away.
+## Reproducing the results
 
-| Dataset | Labels (class id order) | train / validation / test |
-|---|---|---|
-| `covid` | real, fake | 6,420 / 2,140 / 2,140 |
-| `liar` | pants-fire, false, barely-true, half-true, mostly-true, true | 10,269 / 1,284 / 1,283 |
-| `pubhealth` | false, mixture, true, unproven | 9,804 / 1,214 / 1,233 |
-| `isot` | real, fake | 30,926 / 3,866 / 3,866 (2,000 of test in the LLM subset) |
-| `climate_fever` | supports, refutes, not_enough_info, disputed | 0 / 0 / 1,535 (test only) |
+### 1. Train
 
-**Fixed splits.** Which row is in which split is stored in `data/splits/<dataset>.csv`
-(`id, split, in_llm_subset`), committed to the repo, so the cluster and every laptop use
-identical rows; loading checks the raw data against it and fails loudly if they differ.
-COVID, LIAR and PUBHEALTH keep their official splits. ISOT is split 80/10/10, stratified,
-seed 42, with a stratified 2,000-article test subset for the 8B LLM runs. The files were made
-once with `python scripts/make_splits.py`; `--check` verifies them against your download.
-
-**Data decisions.** PUBHEALTH: 41 rows with label -1 (broken in the source) are dropped.
-ISOT: 631 articles with an empty body are dropped (630 of them fake, so keeping them would
-teach "title only means fake"), then 5,609 exact duplicates; 38,658 remain. The reasoning
-behind the ISOT cleanup and the 80/10/10 split is in `docs/m3_isot_and_splits.md`. COVID
-ids restart at 1 in each official file, so our ids are `train-17`, `validation-17`, and so on.
-Cleaning is light (encoding repair, HTML, whitespace; no lower-casing), and the prepared
-tables are cached in `data/cache/datasets/`, so ISOT loads in under a second after the first
-time. Tests: `pytest tests/test_data.py`.
-
-**Shortcuts and leakage (T13).** `variant="clean"` removes ISOT's source fingerprints (the
-Reuters dateline, image credits, embedded tweets, links, site boilerplate, stripped
-apostrophes; one named rule each in `factcheck/data/shortcuts.py`), keeping row ids identical
-to `raw`. Train rows that are copies or near-copies of a validation/test row are listed in
-`data/splits/exclusions.csv` and dropped by `load_splits` (validation and test never change;
-`drop_excluded=False` loads the full split). Counts per rule and per check are in
-`results/leakage_report.csv`; the reasoning is in `docs/m3_retrieval_and_shortcuts.md`.
-Re-run with `python scripts/find_shortcuts.py` and `python -m factcheck.data.leakage`.
-
-## Retrieval (T08)
+One run is one config and one command. Re-running a config replaces its rows in
+`results/runs.csv`.
 
 ```bash
-python -m factcheck.retrieval build      # embed and cache everything (GPU: minutes; CPU: hours)
-python -m factcheck.retrieval check      # example neighbours, kNN-vote accuracy, duplicate flags
-python -m factcheck.train --config configs/knn/knn_liar.yaml   # kNN-vote baseline into runs.csv
-```
-
-```python
-from factcheck.retrieval import load_claim_index, load_evidence
-
-index = load_claim_index("liar")                   # TRAIN claims only
-hits = index.search_texts(["Says the economy grew 5% last year."], k=8)[0]
-hits[0].text, hits[0].label_name, hits[0].score    # most similar first
-load_evidence("pubhealth").top_k("33456", k=5)     # best 5 sentences of that claim's article
-load_evidence("climate_fever").search_pool(["Polar bears are dying out."], k=5)
-```
-
-Embeddings come from `BAAI/bge-small-en-v1.5` (unit length, so search is one matrix multiply)
-and are cached as float16 in `data/cache/retrieval/`; the cache key includes the exact texts,
-so a change in the data rebuilds it. Only train claims are indexed, so a prompt can never show
-a validation or test verdict.
-
-## Model inputs and prompts (T14, T15)
-
-Two extra-effort switches go in a run config and need no code changes (both off by default):
-
-```yaml
-features:
-  use_metadata: true    # LIAR: "[speaker: ... | party: ... | subject: ... | context: ...] claim"
-  use_evidence: true    # PUBHEALTH / Climate-FEVER: claim + its 5 most similar evidence sentences
-  evidence_k: 5
-```
-
-Every model family loads data with `factcheck.inputs.load_inputs(cfg)` (`load_splits` plus these
-switches), so the Bi-LSTM, the encoders and the LLM see identical inputs. Encoders tokenise
-claim and evidence as a pair and cut only the evidence. The LLM prompts are built in
-`factcheck/prompts.py`:
-
-```python
-from factcheck.prompts import knn_messages, rag_messages
-from factcheck.retrieval import evidence_for, knn_examples
-
-hits = knn_examples("liar", splits["validation"], "validation", k=8)   # train claims only
-messages = knn_messages(claim, [(h.text, h.label_name) for h in hits[0]], "liar")
-messages = rag_messages(claim, evidence_for("pubhealth", df)[0], "pubhealth")
-```
-
-They return chat messages for `tokenizer.apply_chat_template`, end with the same answer
-instruction as the zero-shot prompt (T07), and keep 8 ISOT examples under 2,000 tokens. Wiring
-them into `factcheck.models.llm` is the LLM retrieval runs (T20). More in
-`docs/m3_prompts_and_inputs.md`.
-
-## Training and results
-
-```bash
-python -m factcheck.train --config configs/lstm/lstm_liar.yaml           # one run, seed from the config
+python -m factcheck.train --config configs/classic/tfidf_lr_liar.yaml           # CPU, seconds
 python -m factcheck.train --config configs/lstm/lstm_liar.yaml --seeds 13 42 2026
-python -m factcheck.train --config configs/encoder/bert_liar.yaml          # encoders (T06)
-python -m factcheck.evaluate                                              # logged runs + specs S1-S10
+python -m factcheck.train --config configs/encoder/deberta_v3_base_liar.yaml --seeds 13 42 2026
+python -m factcheck.tune  --config configs/encoder/deberta_v3_base_liar.yaml   # Optuna search
 ```
 
-Every run is scored by `factcheck.evaluate` and logged to `results/runs.csv` (one row per run,
-seed and split; re-running a config replaces its rows). Per-row probabilities go to
-`results/predictions/<run>/seed<N>/` (not committed) for ensembles, significance tests and
-calibration curves. Spec targets live in `configs/specs.yaml`.
-
-### Ensembles, significance and the extra-effort chart (T31, T32)
+Configs are grouped by family in `configs/` (`classic/`, `lstm/`, `encoder/`, `llm/`, `knn/`),
+and `configs/README.md` explains each group. The full experiment sets are job lists in
+`jobs/`, one config per line, run by one worker per GPU:
 
 ```bash
-bash jobs/t31_ensemble.sh      # tests + E5 chart; run where results/predictions/ is complete
-python -m factcheck.ensemble   # top-3 soft vote per dataset + paired bootstrap / McNemar tests
-python -m factcheck.ensemble --skip-ensemble   # tests only, runs.csv untouched (after the freeze)
-python -m factcheck.extra_effort   # E5 table and chart from runs.csv
+CUDA_VISIBLE_DEVICES=0 bash jobs/queue.sh jobs/t17_encoders.txt
 ```
 
-`factcheck.ensemble` averages each run's seeds, picks the 3 best models per dataset on
-validation macro-F1 (preferring a different backbone within 0.01), soft-votes them and logs
-`ensemble_top3_<dataset>` to `runs.csv`. It then tests the planned comparisons (ensemble vs
-best single model, best encoder vs BERT-base and vs the best Qwen3-8B mode, LoRA vs full
-fine-tuning, each extra-effort step) with a 10,000-resample paired bootstrap and McNemar's
-test, Holm-corrected, in `results/significance.csv`. `factcheck.extra_effort` writes
-`results/e5_extra_effort.{csv,md}` and `results/figures/e5_extra_effort.png`. The reasoning
-is in `docs/m3_ensemble_and_extras.md`.
+| Job list | Experiment |
+|---|---|
+| `t17_encoders.txt`, `t19_large_encoders.txt` | base, large and domain encoders, all datasets, 3 seeds |
+| `t18_tune.sh`, `t18_tuned.txt` | Optuna search, then the tuned DeBERTa-v3-base |
+| `t20_llm.txt`, `t27_qlora.txt` | Qwen3-8B prompting modes and QLoRA |
+| `t26_lora.txt`, `t26_lora_r64_alpha.txt` | LoRA rank and target sweep |
+| `t28_shortcuts.txt` | raw vs cleaned ISOT |
+| `t29_ablations.txt` | the extra-effort steps (metadata, evidence, class weights) |
+| `t55_rnn.txt` | plain RNN, GRU and one-way LSTM next to the Bi-LSTM |
 
-### LDA topics and the results freeze (T56, T43)
+We trained on RTX 3090 and RTX A5000 GPU servers. The longest single run (DeBERTa-v3-large on
+ISOT) took 2.76 hours, and Qwen3-8B needs about 17 GB of GPU memory in bf16.
+
+### 2. Tables, figures and tests on the results
+
+These read `results/runs.csv` (identical to the frozen file) and run on a CPU:
 
 ```bash
-python -m factcheck.topics                 # LDA by label on ISOT and PUBHEALTH (about 7 min, CPU)
-python scripts/find_shortcuts.py --headline    # ISOT label from headline capitalisation alone
-python scripts/freeze_results.py --check   # completeness report for runs.csv
-python scripts/freeze_results.py           # copy to results/final/ with its SHA-256 (T43)
+python -m factcheck.evaluate                   # summary of logged runs and the specs check
+python notebooks/02_results_v1.py              # main results table and v1_* figures
+python -m factcheck.specs_table_t42            # model ladder, shortcut chart, specs table
+python -m factcheck.plots_cross_dataset_t41    # cross-dataset heatmap, Climate-FEVER chart
+python -m factcheck.extra_effort               # extra-effort table and chart
+python -m factcheck.topics                     # LDA topics by label (about 2 min)
+python scripts/find_shortcuts.py               # top words before and after cleaning
+python scripts/find_shortcuts.py --headline    # ISOT label from headline capitalisation
+python scripts/t55_gradients.py                # recurrent cells: scores and gradient sizes
 ```
 
-`factcheck.topics` writes `results/topics/` and `results/figures/t56_lda_topics.png`: on
-cleaned ISOT the topics alone predict real vs fake at 0.89 macro-F1, on PUBHEALTH barely
-above guessing. The frozen results are `results/final/runs_final.csv`; `MANIFEST.md` next to
-it holds the hash, the commit and the warnings at freeze time. M3's reading of all of this is
-in `docs/m3_interpretation.md`.
+These need the trained models in `outputs/` or the per-row predictions in
+`results/predictions/`, which are too large to commit:
 
-## The app
+```bash
+python -m factcheck.ensemble --skip-ensemble   # significance tests (paired bootstrap, McNemar)
+python -m factcheck.evaluate_cross_dataset     # train on one dataset, test on another
+python scripts/transfer_climate_fever.py <model dirs>   # PUBHEALTH models on Climate-FEVER
+python -m factcheck.explain --checkpoint outputs/distilbert_covid/seed42   # SHAP
+python notebooks/03_interpretation.py          # calibration, UMAP, error tagging, SHAP vs TF-IDF
+```
+
+`notebooks/01_eda.ipynb` has the dataset exploration (sizes, label balance, lengths,
+duplicates, shortcuts).
+
+### 3. Check against the frozen results
+
+```bash
+python scripts/freeze_results.py --check
+python -c "import hashlib; print(hashlib.sha256(open('results/final/runs_final.csv','rb').read()).hexdigest())"
+```
+
+The hash should match `results/final/MANIFEST.md`. Every number in the report and the video
+comes from that file.
+
+## The app (Fact-Check Lab)
 
 ```bash
 streamlit run app/app.py
 ```
 
-It finds trained models under `outputs/<run>/seed<N>/model` and results in `results/runs.csv`.
+Paste a claim and the app shows the verdict on the dataset's rating scale, how sure the model
+is, the words that pushed it there (SHAP for a transformer, exact weights for TF-IDF), the most
+similar already fact-checked claims and evidence sentences, and an optional second opinion from
+Qwen3-8B. Other views compare models side by side, show the ISOT shortcut (a Reuters dateline
+flips the raw-trained model) and show the results and specs.
+
+The app loads trained models from `outputs/<run>/seed<N>/model`, which are not committed.
+Training `configs/classic/tfidf_lr_covid.yaml` (seconds on a CPU) is enough to start it. Each
+further config you train appears automatically. The full demo ran on a laptop RTX 5060 (8 GB)
+with an encoder, Qwen3-8B in 4-bit and the retrieval index loaded together: 5.6 GB of GPU
+memory and 0.16 s per claim.
 
 ## Repository layout
 
 ```
 factcheck/
 ├── README.md
-├── pyproject.toml          pip install -e .
-├── requirements.txt        pinned versions for reproducibility (requirements-lock.txt: full freeze)
-├── configs/                one YAML per run (template.yaml)
-├── factcheck/              the reusable package
-│   ├── data/               loaders behind a registry; cleaning; shortcut removal
-│   ├── models/             lstm.py, encoder.py, llm.py
-│   ├── retrieval.py        embedding index build, cache and search
-│   ├── train.py            python -m factcheck.train --config configs/x.yaml
-│   ├── tune.py             Optuna search
-│   ├── evaluate.py         the one metrics function and the specs check
-│   ├── explain.py          SHAP, UMAP, calibration
-│   ├── results.py          runs.csv
-│   └── paths.py            every path, overridable by environment variable
-├── scripts/                download_data.py, check_env.py, smoke_test.py
-├── jobs/                   setup_cluster.sh, gpu0.sh ... gpu3.sh
-├── notebooks/              01_eda, 02_results, 03_interpretation
-├── app/app.py              Streamlit Fact-Check Lab
-├── results/                runs.csv and figures/
-├── tests/                  loaders, cleaning and metrics
-└── docs/                   contribution log, reflection, GAI form
+├── pyproject.toml           package metadata; pip install -e .
+├── requirements.txt         pinned versions (requirements-lock.txt: full freeze)
+├── configs/                 one YAML per run, by family; specs.yaml holds the targets S1-S10
+├── factcheck/               the package
+│   ├── data/                loaders, cleaning, fixed splits, shortcut removal, leakage checks
+│   ├── models/              classic.py, lstm.py, encoder.py, llm.py (prompting, LoRA, QLoRA)
+│   ├── train.py, tune.py    one run from a config; Optuna search
+│   ├── evaluate.py          the one metrics function and the specs check
+│   ├── stats.py, ensemble.py   paired bootstrap, McNemar, Holm correction
+│   ├── retrieval.py         bge-small embedding index over train claims and evidence
+│   ├── explain.py, topics.py, style.py   SHAP, LDA topics, style stripping
+│   ├── serve.py             inference engine for the app
+│   └── ...                  figure and table scripts (specs_table_t42.py, plots_cross_dataset_t41.py, ...)
+├── scripts/                 data download, splits, environment check, analysis scripts
+├── jobs/                    GPU job lists and the queue runner
+├── notebooks/               EDA, results table, interpretation pipeline
+├── app/                     Streamlit app (DESIGN.md and PRODUCT.md at the top level describe its design)
+├── results/                 runs.csv, final/ (frozen), figures/ and analysis outputs
+├── tests/                   pytest suite
+└── docs/                    interpretation write-ups, data notes, reviews, contribution log
 ```
 
-## Working together
+## Tests and code style
 
-* `black` and `ruff` (settings in `pyproject.toml`); docstrings and type hints on every function.
-* One branch per task, a pull request reviewed by another member, then merge.
-* Tuning sees validation only; each final model is scored on test once.
-* Log every piece of work in `docs/contribution_log.md`.
-* New dependency: add it to `pyproject.toml` (in `dependencies` or the right extra), then pin the
-  version you tested in `requirements.txt` (`pip show <package>` prints it), so everyone can
-  reproduce with `pip install -r requirements.txt`. Refresh the full freeze with
-  `pip freeze --exclude-editable > requirements-lock.txt`.
+```bash
+pytest                       # the full suite, on a CPU in a few minutes
+ruff check . && black --check .
+```
+
+Settings are in `pyproject.toml`. Tuning only ever sees the validation split, and each final
+model was scored on test once.
+
+## Team
+
+| Member | Role |
+|---|---|
+| M1 | Training and tuning code, encoder and Bi-LSTM runs on the GPU servers, traditional baselines, main results table, the app, style stripping, Climate-FEVER transfer |
+| M2 | Qwen3-8B few-shot and RAG modes, LoRA and QLoRA, extra-effort ablations, recurrent-cell study, SHAP for QLoRA |
+| M3 | Data loaders and fixed splits, shortcut removal and leakage checks, retrieval, EDA, significance tests, LDA topics, results freeze |
+| M4 | Metrics, baseline comparison, SHAP, calibration, shortcut study, cross-dataset tests, report figures and specs table |
+| M5 | Slide template, slides and video |
+
+Each piece of work is logged with its author and date in `docs/contribution_log.md`.

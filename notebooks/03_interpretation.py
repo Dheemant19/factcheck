@@ -6,18 +6,18 @@ Combines:
 """
 
 from __future__ import annotations
+
 from pathlib import Path
-from typing import Dict, List, Optional
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 import seaborn as sns
+import umap
 from sklearn.calibration import calibration_curve
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS
+from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS, TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, f1_score
-import umap
 
 # Define directories
 EXPLANATIONS_DIR = Path("outputs/explanations")
@@ -32,12 +32,15 @@ SHORTCUT_CUES = ["reuters", "washington", "twitter", "http", "https", "@", "pic.
 # TASK T33 FUNCTIONS
 # =====================================================================
 
+
 def compute_ece(y_true: np.ndarray, y_prob: np.ndarray, n_bins: int = 5) -> float:
     """Computes Expected Calibration Error (ECE)."""
     bin_boundaries = np.linspace(0, 1, n_bins + 1)
     ece = 0.0
     for i in range(n_bins):
-        in_bin = (y_prob >= bin_boundaries[i] if i == 0 else y_prob > bin_boundaries[i]) & (y_prob <= bin_boundaries[i + 1])
+        in_bin = (y_prob >= bin_boundaries[i] if i == 0 else y_prob > bin_boundaries[i]) & (
+            y_prob <= bin_boundaries[i + 1]
+        )
         prop_in_bin = np.mean(in_bin)
         if prop_in_bin > 0:
             accuracy = np.mean(y_true[in_bin])
@@ -77,7 +80,7 @@ def plot_calibration_curves(npz_files: list[Path], output_dir: Path, n_bins: int
     plt.legend(bbox_to_anchor=(1.05, 1), loc="upper left")
     plt.grid(True, linestyle=":", alpha=0.6)
     plt.tight_layout()
-    
+
     out_file = output_dir / "calibration_charts.png"
     plt.savefig(out_file, dpi=300, bbox_inches="tight")
     plt.close()
@@ -89,29 +92,35 @@ def generate_umap_by_label(npz_files: list[Path], output_dir: Path) -> None:
     for npz_path in npz_files:
         data = np.load(npz_path, allow_pickle=True)
         labels = data["labels"]
-        
+
         if "cls_embeddings" in data:
             vectors = data["cls_embeddings"]
         else:
             values = data["values"]
-            vectors = np.array([v.mean(axis=0) if hasattr(v, 'mean') else np.zeros(6) for v in values])
+            vectors = np.array(
+                [v.mean(axis=0) if hasattr(v, "mean") else np.zeros(6) for v in values]
+            )
 
         if len(vectors) > 5:
-            reducer = umap.UMAP(n_neighbors=min(15, len(vectors) - 1), min_dist=0.1, metric="cosine", random_state=42)
+            reducer = umap.UMAP(
+                n_neighbors=min(15, len(vectors) - 1),
+                min_dist=0.1,
+                metric="cosine",
+                random_state=42,
+            )
             coords = reducer.fit_transform(vectors)
             name = npz_path.stem.replace("_shap", "")
 
             plt.figure(figsize=(8, 6))
             sns.scatterplot(
-                x=coords[:, 0], y=coords[:, 1],
-                hue=labels, palette="tab10", alpha=0.8, s=60
+                x=coords[:, 0], y=coords[:, 1], hue=labels, palette="tab10", alpha=0.8, s=60
             )
             plt.title(f"UMAP Representation Space: {name}", fontsize=13, fontweight="bold")
             plt.xlabel("UMAP Dimension 1")
             plt.ylabel("UMAP Dimension 2")
             plt.legend(title="Class Label", bbox_to_anchor=(1.05, 1), loc="upper left")
             plt.tight_layout()
-            
+
             out_file = output_dir / f"umap_{name}_by_label.png"
             plt.savefig(out_file, dpi=300, bbox_inches="tight")
             plt.close()
@@ -128,7 +137,9 @@ def export_error_analysis(npz_files: list[Path], output_dir: Path) -> None:
         probs = data["probs"]
         preds = probs.argmax(axis=1)
 
-        for doc_id, text, true_lbl, pred_lbl, prob_dist in zip(ids, texts, labels, preds, probs):
+        for doc_id, text, true_lbl, pred_lbl, prob_dist in zip(
+            ids, texts, labels, preds, probs, strict=False
+        ):
             if true_lbl != pred_lbl:
                 t_str = str(text)
                 upper_ratio = sum(1 for c in t_str if c.isupper()) / max(1, len(t_str))
@@ -140,15 +151,17 @@ def export_error_analysis(npz_files: list[Path], output_dir: Path) -> None:
                 else:
                     error_type = "Content / Semantic Ambiguity"
 
-                error_rows.append({
-                    "model": npz_path.stem.replace("_shap", ""),
-                    "doc_id": doc_id,
-                    "text": t_str,
-                    "true_label": true_lbl,
-                    "pred_label": pred_lbl,
-                    "confidence": float(prob_dist[pred_lbl]),
-                    "error_category": error_type
-                })
+                error_rows.append(
+                    {
+                        "model": npz_path.stem.replace("_shap", ""),
+                        "doc_id": doc_id,
+                        "text": t_str,
+                        "true_label": true_lbl,
+                        "pred_label": pred_lbl,
+                        "confidence": float(prob_dist[pred_lbl]),
+                        "error_category": error_type,
+                    }
+                )
 
     df_err = pd.DataFrame(error_rows).sort_values(by="confidence", ascending=False)
     out_file = output_dir / "error_analysis_report.csv"
@@ -160,7 +173,7 @@ def ensure_tfidf_top_words(
     output_dir: Path,
     dataset_name: str = "isot",
     variant: str = "raw",
-    npz_files: Optional[list[Path]] = None,
+    npz_files: list[Path] | None = None,
 ) -> Path:
     """Loads pre-computed TF-IDF top words from results/shortcuts/."""
     target_csv = output_dir / f"tfidf_top_words_{dataset_name}_{variant}.csv"
@@ -187,7 +200,9 @@ def ensure_tfidf_top_words(
         return target_csv
 
     if npz_files:
-        print(f"[T33 Fallback] Generating temporary TF-IDF top words for {dataset_name}_{variant}...")
+        print(
+            f"[T33 Fallback] Generating temporary TF-IDF top words for {dataset_name}_{variant}..."
+        )
         all_texts, all_labels = [], []
         for p in npz_files:
             data = np.load(p, allow_pickle=True)
@@ -200,10 +215,9 @@ def ensure_tfidf_top_words(
             clf = LogisticRegression(max_iter=500)
             clf.fit(X, (np.array(all_labels) > 0).astype(int))
 
-            df_words = pd.DataFrame({
-                "word": vec.get_feature_names_out(),
-                "importance_weight": clf.coef_[0]
-            }).sort_values(by="importance_weight", ascending=False)
+            df_words = pd.DataFrame(
+                {"word": vec.get_feature_names_out(), "importance_weight": clf.coef_[0]}
+            ).sort_values(by="importance_weight", ascending=False)
 
             df_words.to_csv(target_csv, index=False)
             return target_csv
@@ -215,21 +229,37 @@ def parse_top_words_df(df: pd.DataFrame) -> pd.DataFrame:
     """Extracts words and numerical feature weights from top words CSV files."""
     if df.empty:
         return pd.DataFrame(columns=["word", "weight"])
-    
+
     df_clean = df.copy()
     df_clean.columns = [str(c).lower().strip() for c in df_clean.columns]
-    
+
     word_candidates = ["word", "feature", "token", "term", "ngram"]
     word_col = next((c for c in word_candidates if c in df_clean.columns), None)
     if not word_col:
         non_num = df_clean.select_dtypes(include=["object", "string"]).columns
         word_col = non_num[0] if len(non_num) > 0 else df_clean.columns[0]
 
-    weight_candidates = ["importance_weight", "weight", "tfidf", "score", "importance", "coef", "coefficient"]
+    weight_candidates = [
+        "importance_weight",
+        "weight",
+        "tfidf",
+        "score",
+        "importance",
+        "coef",
+        "coefficient",
+    ]
     weight_col = next((c for c in weight_candidates if c in df_clean.columns), None)
     if not weight_col:
-        num_cols = [c for c in df_clean.select_dtypes(include=[np.number]).columns if "rank" not in c and "index" not in c and "unnamed" not in c]
-        weight_col = num_cols[0] if len(num_cols) > 0 else (df_clean.columns[1] if len(df_clean.columns) > 1 else df_clean.columns[0])
+        num_cols = [
+            c
+            for c in df_clean.select_dtypes(include=[np.number]).columns
+            if "rank" not in c and "index" not in c and "unnamed" not in c
+        ]
+        weight_col = (
+            num_cols[0]
+            if len(num_cols) > 0
+            else (df_clean.columns[1] if len(df_clean.columns) > 1 else df_clean.columns[0])
+        )
 
     res = df_clean[[word_col, weight_col]].rename(columns={word_col: "word", weight_col: "weight"})
     res["weight"] = pd.to_numeric(res["weight"], errors="coerce")
@@ -238,8 +268,12 @@ def parse_top_words_df(df: pd.DataFrame) -> pd.DataFrame:
 
 def plot_shap_vs_tfidf(npz_files: list[Path], output_dir: Path, dataset_name: str = "isot") -> None:
     """Plots a 3-panel horizontal comparison: Raw TF-IDF vs Clean TF-IDF vs Model SHAP attributions."""
-    raw_tfidf_csv = ensure_tfidf_top_words(output_dir, dataset_name=dataset_name, variant="raw", npz_files=npz_files)
-    clean_tfidf_csv = ensure_tfidf_top_words(output_dir, dataset_name=dataset_name, variant="clean", npz_files=npz_files)
+    raw_tfidf_csv = ensure_tfidf_top_words(
+        output_dir, dataset_name=dataset_name, variant="raw", npz_files=npz_files
+    )
+    clean_tfidf_csv = ensure_tfidf_top_words(
+        output_dir, dataset_name=dataset_name, variant="clean", npz_files=npz_files
+    )
 
     def load_top_10(csv_path: Path) -> pd.DataFrame:
         if not csv_path.exists():
@@ -259,13 +293,17 @@ def plot_shap_vs_tfidf(npz_files: list[Path], output_dir: Path, dataset_name: st
         data = np.load(p, allow_pickle=True)
         if "texts" in data and "values" in data:
             texts, values = data["texts"], data["values"]
-            for text, val_matrix in zip(texts, values):
+            for text, val_matrix in zip(texts, values, strict=False):
                 tokens = str(text).split()
-                scores = np.abs(val_matrix).mean(axis=-1) if val_matrix.ndim > 1 else np.abs(val_matrix)
-                for tok, sc in zip(tokens, scores):
+                scores = (
+                    np.abs(val_matrix).mean(axis=-1) if val_matrix.ndim > 1 else np.abs(val_matrix)
+                )
+                for tok, sc in zip(tokens, scores, strict=False):
                     tok_clean = tok.lower().strip(".,!?:;\"'")
                     if len(tok_clean) > 2 and tok_clean not in ENGLISH_STOP_WORDS:
-                        word_shap_scores[tok_clean] = word_shap_scores.get(tok_clean, 0.0) + float(sc)
+                        word_shap_scores[tok_clean] = word_shap_scores.get(tok_clean, 0.0) + float(
+                            sc
+                        )
 
     df_shap = (
         pd.DataFrame(list(word_shap_scores.items()), columns=["word", "weight"])
@@ -276,18 +314,26 @@ def plot_shap_vs_tfidf(npz_files: list[Path], output_dir: Path, dataset_name: st
     fig, axes = plt.subplots(1, 3, figsize=(16, 5), sharey=False)
 
     if not top_raw_tfidf.empty:
-        sns.barplot(data=top_raw_tfidf, x="weight", y="word", ax=axes[0], palette="Reds_r", hue="word")
+        sns.barplot(
+            data=top_raw_tfidf, x="weight", y="word", ax=axes[0], palette="Reds_r", hue="word"
+        )
         if axes[0].legend_:
             axes[0].legend_.remove()
-    axes[0].set_title(f"1. Raw TF-IDF Top Words ({dataset_name.upper()})", fontsize=11, fontweight="bold")
+    axes[0].set_title(
+        f"1. Raw TF-IDF Top Words ({dataset_name.upper()})", fontsize=11, fontweight="bold"
+    )
     axes[0].set_xlabel("TF-IDF / Model Weight")
     axes[0].set_ylabel("Word")
 
     if not top_clean_tfidf.empty:
-        sns.barplot(data=top_clean_tfidf, x="weight", y="word", ax=axes[1], palette="Blues_r", hue="word")
+        sns.barplot(
+            data=top_clean_tfidf, x="weight", y="word", ax=axes[1], palette="Blues_r", hue="word"
+        )
         if axes[1].legend_:
             axes[1].legend_.remove()
-    axes[1].set_title(f"2. Cleaned TF-IDF Top Words ({dataset_name.upper()})", fontsize=11, fontweight="bold")
+    axes[1].set_title(
+        f"2. Cleaned TF-IDF Top Words ({dataset_name.upper()})", fontsize=11, fontweight="bold"
+    )
     axes[1].set_xlabel("TF-IDF / Model Weight")
     axes[1].set_ylabel("Word")
 
@@ -295,11 +341,17 @@ def plot_shap_vs_tfidf(npz_files: list[Path], output_dir: Path, dataset_name: st
         sns.barplot(data=df_shap, x="weight", y="word", ax=axes[2], palette="Oranges_r", hue="word")
         if axes[2].legend_:
             axes[2].legend_.remove()
-    axes[2].set_title(f"3. Model SHAP Top Words ({dataset_name.upper()})", fontsize=11, fontweight="bold")
+    axes[2].set_title(
+        f"3. Model SHAP Top Words ({dataset_name.upper()})", fontsize=11, fontweight="bold"
+    )
     axes[2].set_xlabel("Mean Absolute SHAP Value")
     axes[2].set_ylabel("Word")
 
-    plt.suptitle(f"Interpretation Analysis: Raw vs. Cleaned TF-IDF vs. SHAP Word Importances ({dataset_name.upper()}) (T33)", fontsize=13, fontweight="bold")
+    plt.suptitle(
+        f"Interpretation Analysis: Raw vs. Cleaned TF-IDF vs. SHAP Word Importances ({dataset_name.upper()}) (T33)",
+        fontsize=13,
+        fontweight="bold",
+    )
     plt.tight_layout()
 
     out_file = output_dir / f"shap_vs_tfidf_raw_clean_{dataset_name}.png"
@@ -312,15 +364,16 @@ def plot_shap_vs_tfidf(npz_files: list[Path], output_dir: Path, dataset_name: st
 # TASK T34 FUNCTIONS
 # =====================================================================
 
+
 def load_shortcut_scores_from_runs_csv(runs_csv_path: Path = RUNS_CSV) -> pd.DataFrame:
     """Reads raw vs. cleaned macro-F1 and accuracy scores directly from runs.csv."""
     candidate_paths = [
         runs_csv_path,
         RESULTS_DIR / "runs.csv",
         Path("runs.csv"),
-        Path("../results/runs.csv")
+        Path("../results/runs.csv"),
     ]
-    
+
     runs_file = next((p for p in candidate_paths if p.exists()), None)
     if not runs_file:
         print("[T34 Warning] runs.csv not found in candidate search paths.")
@@ -351,7 +404,9 @@ def run_shortcut_analysis(output_dir: Path = FIGURES_DIR) -> pd.DataFrame:
     if df.empty:
         print("[T34] runs.csv scores missing. Falling back to NPZ explanation files...")
         raw_files = [
-            f for f in list(EXPLANATIONS_DIR.glob("*raw*_shap.npz")) + list(EXPLANATIONS_DIR.glob("*seed42_shap.npz"))
+            f
+            for f in list(EXPLANATIONS_DIR.glob("*raw*_shap.npz"))
+            + list(EXPLANATIONS_DIR.glob("*seed42_shap.npz"))
             if "_clean" not in f.stem
         ]
 
@@ -381,20 +436,24 @@ def run_shortcut_analysis(output_dir: Path = FIGURES_DIR) -> pd.DataFrame:
 
             model_name = raw_path.stem.replace("_seed42_shap", "").replace("_shap", "")
 
-            results.append({
-                "model": model_name,
-                "raw_accuracy": raw_acc,
-                "cleaned_accuracy": clean_acc,
-                "accuracy_drop": raw_acc - clean_acc,
-                "raw_macro_f1": raw_f1,
-                "cleaned_macro_f1": clean_f1,
-                "macro_f1_drop": raw_f1 - clean_f1,
-                "mean_prob_shift": prob_shift,
-            })
+            results.append(
+                {
+                    "model": model_name,
+                    "raw_accuracy": raw_acc,
+                    "cleaned_accuracy": clean_acc,
+                    "accuracy_drop": raw_acc - clean_acc,
+                    "raw_macro_f1": raw_f1,
+                    "cleaned_macro_f1": clean_f1,
+                    "macro_f1_drop": raw_f1 - clean_f1,
+                    "mean_prob_shift": prob_shift,
+                }
+            )
         df = pd.DataFrame(results)
 
     if df.empty:
-        print("[T34 Warning] No paired raw vs cleaned results found in runs.csv or outputs/explanations.")
+        print(
+            "[T34 Warning] No paired raw vs cleaned results found in runs.csv or outputs/explanations."
+        )
         return df
 
     # Export CSV with Excel file lock handling
@@ -405,7 +464,9 @@ def run_shortcut_analysis(output_dir: Path = FIGURES_DIR) -> pd.DataFrame:
     except PermissionError:
         fallback_csv = RESULTS_DIR / "shortcut_study_t34_updated.csv"
         df.to_csv(fallback_csv, index=False)
-        print(f"[T34 Warning] {csv_out} locked by another process (e.g. Excel). Saved to {fallback_csv}.")
+        print(
+            f"[T34 Warning] {csv_out} locked by another process (e.g. Excel). Saved to {fallback_csv}."
+        )
 
     plot_shortcut_results(df, output_dir)
     return df
@@ -415,20 +476,32 @@ def plot_shortcut_results(df: pd.DataFrame, output_dir: Path) -> None:
     """Generates a side-by-side bar chart of Raw vs. Cleaned performance."""
     plot_data = []
     for _, row in df.iterrows():
-        plot_data.append({"Model": row["model"], "Variant": "Raw Text (With Shortcuts)", "Macro-F1": row["raw_macro_f1"]})
-        plot_data.append({"Model": row["model"], "Variant": "Cleaned Text (No Shortcuts)", "Macro-F1": row["cleaned_macro_f1"]})
+        plot_data.append(
+            {
+                "Model": row["model"],
+                "Variant": "Raw Text (With Shortcuts)",
+                "Macro-F1": row["raw_macro_f1"],
+            }
+        )
+        plot_data.append(
+            {
+                "Model": row["model"],
+                "Variant": "Cleaned Text (No Shortcuts)",
+                "Macro-F1": row["cleaned_macro_f1"],
+            }
+        )
 
     df_plot = pd.DataFrame(plot_data)
 
     plt.figure(figsize=(9, 5))
     ax = sns.barplot(
-        data=df_plot,
-        x="Model",
-        y="Macro-F1",
-        hue="Variant",
-        palette=["#a3302a", "#2b5fb4"]
+        data=df_plot, x="Model", y="Macro-F1", hue="Variant", palette=["#a3302a", "#2b5fb4"]
     )
-    plt.title("Shortcut Study: Model Macro-F1 on Raw vs. Cleaned Text (T34)", fontsize=13, fontweight="bold")
+    plt.title(
+        "Shortcut Study: Model Macro-F1 on Raw vs. Cleaned Text (T34)",
+        fontsize=13,
+        fontweight="bold",
+    )
     plt.ylim(0, 1.05)
     plt.ylabel("Macro-F1 Score")
     plt.xlabel("Model Configuration")
@@ -443,7 +516,7 @@ def plot_shortcut_results(df: pd.DataFrame, output_dir: Path) -> None:
             ha="center",
             fontsize=9,
             fontweight="bold",
-            color="#a3302a" if drop_pct > 0 else "#2b5fb4"
+            color="#a3302a" if drop_pct > 0 else "#2b5fb4",
         )
 
     plt.legend(loc="lower right")
@@ -459,6 +532,7 @@ def plot_shortcut_results(df: pd.DataFrame, output_dir: Path) -> None:
 # MAIN PIPELINE EXECUTION
 # =====================================================================
 
+
 def main() -> None:
     FIGURES_DIR.mkdir(parents=True, exist_ok=True)
     npz_files = list(EXPLANATIONS_DIR.glob("*_shap.npz"))
@@ -470,8 +544,10 @@ def main() -> None:
         generate_umap_by_label(npz_files, FIGURES_DIR)
         export_error_analysis(npz_files, FIGURES_DIR)
 
-    ensure_tfidf_top_words(output_dir=FIGURES_DIR, dataset_name="isot", variant="raw", npz_files=npz_files)
-    
+    ensure_tfidf_top_words(
+        output_dir=FIGURES_DIR, dataset_name="isot", variant="raw", npz_files=npz_files
+    )
+
     if npz_files:
         plot_shap_vs_tfidf(npz_files, FIGURES_DIR, dataset_name="isot")
 

@@ -29,7 +29,9 @@ def resolve_checkpoint_path(train_ds: str) -> Path:
     if runs_csv.exists():
         try:
             df_runs = pd.read_csv(runs_csv)
-            mask = (df_runs["dataset"].str.lower() == train_ds.lower()) & (df_runs["split"].str.lower() == "validation")
+            mask = (df_runs["dataset"].str.lower() == train_ds.lower()) & (
+                df_runs["split"].str.lower() == "validation"
+            )
             df_ds = df_runs[mask]
             if not df_ds.empty:
                 best_run = df_ds.sort_values(by="macro_f1", ascending=False).iloc[0]
@@ -38,7 +40,12 @@ def resolve_checkpoint_path(train_ds: str) -> Path:
 
                 candidates = [
                     OUTPUT_DIR / run_name / f"seed{seed}" / "model",
-                    OUTPUT_DIR / "factcheck_checkpoints_M4_2026-10-28" / "outputs" / run_name / f"seed{seed}" / "model",
+                    OUTPUT_DIR
+                    / "factcheck_checkpoints_M4_2026-10-28"
+                    / "outputs"
+                    / run_name
+                    / f"seed{seed}"
+                    / "model",
                     OUTPUT_DIR / run_name / "model",
                 ]
                 for c in candidates:
@@ -60,9 +67,12 @@ def resolve_checkpoint_path(train_ds: str) -> Path:
 
     # Explicit fallback paths
     fallbacks = {
-        "covid": OUTPUT_DIR / "factcheck_checkpoints_M4_2026-10-28/outputs/covid_twitter_bert_covid/seed42/model",
-        "liar": OUTPUT_DIR / "factcheck_checkpoints_M4_2026-10-28/outputs/deberta_v3_large_liar/seed42/model",
-        "pubhealth": OUTPUT_DIR / "factcheck_checkpoints_M4_2026-10-28/outputs/roberta_pubhealth/seed42/model",
+        "covid": OUTPUT_DIR
+        / "factcheck_checkpoints_M4_2026-10-28/outputs/covid_twitter_bert_covid/seed42/model",
+        "liar": OUTPUT_DIR
+        / "factcheck_checkpoints_M4_2026-10-28/outputs/deberta_v3_large_liar/seed42/model",
+        "pubhealth": OUTPUT_DIR
+        / "factcheck_checkpoints_M4_2026-10-28/outputs/roberta_pubhealth/seed42/model",
     }
     return fallbacks.get(train_ds, OUTPUT_DIR / train_ds / "model")
 
@@ -98,11 +108,14 @@ def load_model_and_tokenizer_safely(local_model_path: Path):
 
     if safe_file.exists():
         from safetensors.torch import load_file
+
         state_dict = load_file(str(safe_file), device="cpu")
     elif bin_file.exists():
         state_dict = torch.load(str(bin_file), map_location="cpu", weights_only=True)
     else:
-        raise FileNotFoundError(f"No pytorch_model.bin or model.safetensors found in {local_model_path}")
+        raise FileNotFoundError(
+            f"No pytorch_model.bin or model.safetensors found in {local_model_path}"
+        )
 
     model.load_state_dict(state_dict)
     model.eval()
@@ -165,7 +178,7 @@ def run_cross_eval(batch_size: int = 64) -> None:
                             padding=True,
                             truncation=True,
                             max_length=max_len,
-                            return_tensors="pt"
+                            return_tensors="pt",
                         ).to(device)
                         logits = model(**inputs).logits
                         preds = map_logits_to_binary_preds(logits, fake_label_ids)
@@ -175,14 +188,19 @@ def run_cross_eval(batch_size: int = 64) -> None:
                 f1 = float(f1_score(y_true_binary, y_pred_binary, average="macro"))
                 acc = float(accuracy_score(y_true_binary, y_pred_binary))
 
-                print(f"     [RESULT] [{train_ds.upper()} -> {test_ds}] Macro-F1: {f1:.4f} | Accuracy: {acc:.4f}", flush=True)
+                print(
+                    f"     [RESULT] [{train_ds.upper()} -> {test_ds}] Macro-F1: {f1:.4f} | Accuracy: {acc:.4f}",
+                    flush=True,
+                )
 
-                results.append({
-                    "train_dataset": train_ds,
-                    "test_dataset": test_ds,
-                    "macro_f1": round(f1, 4),
-                    "accuracy": round(acc, 4)
-                })
+                results.append(
+                    {
+                        "train_dataset": train_ds,
+                        "test_dataset": test_ds,
+                        "macro_f1": round(f1, 4),
+                        "accuracy": round(acc, 4),
+                    }
+                )
             except Exception as e:
                 print(f"     [ERROR] Inference failed on {test_ds}: {e}", flush=True)
 

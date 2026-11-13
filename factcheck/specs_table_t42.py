@@ -23,7 +23,7 @@ plt.rcParams["font.sans-serif"] = "DejaVu Sans"
 
 def load_runs_data() -> pd.DataFrame:
     """Loads evaluation runs dynamically from results/runs.csv.
-    
+
     Raises FileNotFoundError if runs.csv is missing to strictly prevent hardcoded fallback numbers.
     """
     candidate_paths = [
@@ -31,9 +31,9 @@ def load_runs_data() -> pd.DataFrame:
         RESULTS_DIR / "runs.csv",
         Path("results/runs.csv"),
         Path("runs.csv"),
-        Path("../results/runs.csv")
+        Path("../results/runs.csv"),
     ]
-    
+
     runs_file = next((p for p in candidate_paths if p.exists()), None)
     if not runs_file:
         raise FileNotFoundError(
@@ -65,7 +65,9 @@ def generate_model_ladder_metrics(df_runs: pd.DataFrame) -> pd.DataFrame:
     ladder_rows = []
     for ds in ["covid", "liar", "pubhealth", "isot"]:
         suffix = "_clean" if MAIN_VARIANT.get(ds) == "clean" else ""
-        main = scores[(scores["dataset"] == ds) & (scores["variant"] == MAIN_VARIANT.get(ds, "raw"))]
+        main = scores[
+            (scores["dataset"] == ds) & (scores["variant"] == MAIN_VARIANT.get(ds, "raw"))
+        ]
         rungs = {
             "1 TF-IDF + LR": f"tfidf_lr_{ds}{suffix}",
             "2 Bi-LSTM": f"lstm_{ds}",
@@ -92,7 +94,7 @@ def plot_dynamic_model_ladder(df_runs: pd.DataFrame) -> None:
 
     pivot_mean = df_metrics.pivot(index="dataset", columns="model", values="macro_f1")
     pivot_std = df_metrics.pivot(index="dataset", columns="model", values="std")
-    
+
     FIGURES_DIR.mkdir(parents=True, exist_ok=True)
     fig, ax = plt.subplots(figsize=(10, 5))
     colors = ["#95a5a6", "#e67e22", "#3498db", "#2ecc71"]
@@ -101,21 +103,26 @@ def plot_dynamic_model_ladder(df_runs: pd.DataFrame) -> None:
         kind="bar",
         yerr=pivot_std.fillna(0.0),
         ax=ax,
-        color=colors[:len(pivot_mean.columns)],
+        color=colors[: len(pivot_mean.columns)],
         width=0.75,
         capsize=3,
         edgecolor="black",
-        linewidth=0.5
+        linewidth=0.5,
     )
 
-    ax.set_title("E1 Main Comparison: Test Macro-F1 (Mean Over Seeds) Across the Ladder", fontsize=12, fontweight="bold", pad=12)
+    ax.set_title(
+        "E1 Main Comparison: Test Macro-F1 (Mean Over Seeds) Across the Ladder",
+        fontsize=12,
+        fontweight="bold",
+        pad=12,
+    )
     ax.set_ylabel("Macro-F1 Score", fontsize=11)
     ax.set_xlabel("Dataset Domain", fontsize=11)
     ax.set_ylim(0.0, 1.05)
     ax.legend(title="Model Architecture", bbox_to_anchor=(1.02, 1), loc="upper left", frameon=True)
     plt.xticks(rotation=0)
     plt.tight_layout()
-    
+
     out_path = FIGURES_DIR / "t42_model_ladder_dynamic.png"
     plt.savefig(out_path, dpi=300)
     plt.close()
@@ -158,7 +165,9 @@ def plot_dynamic_shortcut_study(df_runs: pd.DataFrame) -> None:
     """Figure 4 (E7): Dynamic Raw vs. Cleaned Shortcut Learning Comparison."""
     merged = paired_raw_clean(df_runs)
     if merged.empty:
-        raise ValueError("No paired raw vs clean evaluation runs found in runs.csv for shortcut study.")
+        raise ValueError(
+            "No paired raw vs clean evaluation runs found in runs.csv for shortcut study."
+        )
 
     models = merged["model"].tolist()
     raw_acc = merged["raw_accuracy"].tolist()
@@ -169,10 +178,29 @@ def plot_dynamic_shortcut_study(df_runs: pd.DataFrame) -> None:
 
     FIGURES_DIR.mkdir(parents=True, exist_ok=True)
     fig, ax = plt.subplots(figsize=(8.5, 4.5))
-    rects1 = ax.bar(x - width/2, raw_acc, width, label="Raw Text (With Shortcuts)", color="#e74c3c", edgecolor="black")
-    rects2 = ax.bar(x + width/2, clean_acc, width, label="Cleaned Text (No Shortcuts)", color="#2ecc71", edgecolor="black")
+    rects1 = ax.bar(
+        x - width / 2,
+        raw_acc,
+        width,
+        label="Raw Text (With Shortcuts)",
+        color="#e74c3c",
+        edgecolor="black",
+    )
+    rects2 = ax.bar(
+        x + width / 2,
+        clean_acc,
+        width,
+        label="Cleaned Text (No Shortcuts)",
+        color="#2ecc71",
+        edgecolor="black",
+    )
 
-    ax.set_title("E7 Shortcut Study: Test Accuracy on Raw vs. Cleaned Text (Mean Over Seeds)", fontsize=12, fontweight="bold", pad=12)
+    ax.set_title(
+        "E7 Shortcut Study: Test Accuracy on Raw vs. Cleaned Text (Mean Over Seeds)",
+        fontsize=12,
+        fontweight="bold",
+        pad=12,
+    )
     ax.set_ylabel("Accuracy", fontsize=11)
     ax.set_xticks(x)
     ax.set_xticklabels(models, rotation=15, ha="right")
@@ -181,8 +209,15 @@ def plot_dynamic_shortcut_study(df_runs: pd.DataFrame) -> None:
 
     for rect in rects1 + rects2:
         h = rect.get_height()
-        ax.annotate(f"{h:.3f}", xy=(rect.get_x() + rect.get_width() / 2, h),
-                    xytext=(0, 3), textcoords="offset points", ha="center", va="bottom", fontsize=8)
+        ax.annotate(
+            f"{h:.3f}",
+            xy=(rect.get_x() + rect.get_width() / 2, h),
+            xytext=(0, 3),
+            textcoords="offset points",
+            ha="center",
+            va="bottom",
+            fontsize=8,
+        )
 
     plt.tight_layout()
     out_path = FIGURES_DIR / "t42_shortcut_analysis_dynamic.png"
@@ -223,25 +258,28 @@ def print_clean_specs_table(df: pd.DataFrame) -> None:
     """Formats the specifications table with fixed field widths to prevent terminal column collisions."""
     headers = ["Spec ID", "Requirement", "Target", "Achieved", "Status", "Source"]
     widths = [8, 80, 24, 32, 8, 50]
-    
+
     header_str = "".join([f"{h:<{w}}" for h, w in zip(headers, widths, strict=False)])
     print(header_str, flush=True)
     print("-" * sum(widths), flush=True)
-    
+
     for _, row in df.iterrows():
-        print("".join(f"{str(row[h]):<{w}}" for h, w in zip(headers, widths, strict=False)), flush=True)
+        print(
+            "".join(f"{str(row[h]):<{w}}" for h, w in zip(headers, widths, strict=False)),
+            flush=True,
+        )
 
 
 def main() -> None:
     print("==========================================", flush=True)
     print("Executing Dynamic T42 Visualizer & Specs Builder...", flush=True)
     print("==========================================", flush=True)
-    
+
     df_runs = load_runs_data()
     plot_dynamic_model_ladder(df_runs)
     plot_dynamic_shortcut_study(df_runs)
     df_specs = generate_dynamic_specs_table(df_runs)
-    
+
     print("\n--- Dynamically Generated Specifications Table ---", flush=True)
     print_clean_specs_table(df_specs)
     print("==========================================", flush=True)
