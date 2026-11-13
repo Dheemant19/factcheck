@@ -28,7 +28,8 @@ domain encoder sweeps (T17, T19) and the Optuna search (T18), and added the trad
 and GloVe baselines (T54). Built results table v1 and the consultation pack (T21, T24, taken
 over from M4 and M5), the app and its redesign (T22, T35, T58, taken over from M5), the
 Climate-FEVER and style-stripped COVID studies (T38, T59) and the re-run queue (T39). Reviewed
-and merged M3's data and retrieval work.
+and merged M3's data and retrieval work, reviewed M2's code (T44), ran the significance tests
+on the saved predictions (T31) and wrote the interpretation paragraphs for this part (T57).
 
 ### M2 (training team), name: ____________
 

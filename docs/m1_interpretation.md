@@ -13,7 +13,7 @@ topics and significance tests.
 
 * **TF-IDF with logistic regression is the baseline to beat, and it is hard to beat.** It is
   within 0.03 of the best encoder on COVID (0.953 vs 0.980), PUBHEALTH (0.487 vs 0.509) and
-  ISOT (0.988 vs 1.000). Only on LIAR do transformers pull clearly ahead (0.237 vs 0.296).
+  ISOT (0.988 vs 1.000). Only on LIAR do transformers pull further ahead (0.237 vs 0.296).
 * **Its top words show what all the models read: how a dataset's sources write, not whether a
   claim is true.** "rt", "drtedros" and "data" mean real on COVID; "said on tuesday" means real
   on ISOT.
@@ -91,7 +91,8 @@ claim: cheap, but 7 to 10 times TF-IDF's weights for no gain.
 PUBHEALTH and 1.000 ISOT; the best large or domain encoder 0.980, 0.296, 0.509 and 1.000. The
 largest gain over TF-IDF is on LIAR (+0.06 macro-F1, and ROC-AUC 0.733 vs 0.639). Going from
 base to large or domain encoders adds only 0.008 to 0.014 on COVID, LIAR and PUBHEALTH, close to
-the 0.01 to 0.03 that seeds alone move a score. Bigger is not always better: deberta-v3-large
+the 0.01 to 0.03 that seeds alone move a score; M3's significance tests (T31) find none of the
+best-encoder gains over BERT-base beyond test-set noise. Bigger is not always better: deberta-v3-large
 scores 0.478 on PUBHEALTH, below SciBERT's 0.509, which is smaller but pretrained on scientific
 text.
 
@@ -131,7 +132,8 @@ deberta-v3-large (0.296) and the tuned DeBERTa-v3-base with speaker metadata (0.
 **Why.** A LIAR claim is one short political sentence, and its six labels ("barely true" vs
 "half true") are judged against facts and context that are not in the sentence. Metadata
 (speaker, party, context) adds 0.02 because who says something is a real clue to how it will
-be rated, but that is a prior about the speaker, not a check of the claim. The ceiling is in
+be rated, but that is a prior about the speaker, not a check of the claim, and the gain is
+within test-set noise (T31). The ceiling is in
 the data, not the model.
 
 ## 7. Why PUBHEALTH's rare labels fail
@@ -151,7 +153,9 @@ unproven), mean over seeds:
 because no evidence exists, and mixture because part of it holds. The text of the claim cannot
 show either, and with only 45 unproven test claims each mistake moves its F1 a lot. Class
 weights help the rarest label most, and evidence helps every label, because it brings in the
-missing information. The published 0.705 (Kotonya & Toni 2020) is still far above our 0.562.
+missing information. Evidence is the one extra that gets significantly more claims right
+(McNemar, T31), although its macro-F1 gain is within test-set noise, again because of the 45
+unproven claims. The published 0.705 (Kotonya & Toni 2020) is still far above our 0.562.
 
 ## 8. The models learn a dataset's style, not falsehood (T58 probes, T59)
 
@@ -185,8 +189,9 @@ remove.
 **What we saw.** PUBHEALTH-trained models scored on Climate-FEVER with no Climate-FEVER
 training are at chance: DeBERTa-v3-base with evidence 0.185 macro-F1 (supports-vs-refutes
 ROC-AUC 0.597), SciBERT 0.169 (0.506) and TF-IDF 0.177 (0.533). Qwen3-8B zero-shot, with no
-evidence and no training, gets 0.398 (0.750), and with retrieved evidence (M2's RAG run) 0.479
-(0.862).
+evidence and no training, gets 0.398 (0.750). Given five evidence sentences (M2's RAG runs),
+it gets 0.429 (0.794) when they are retrieved from the pool of all Climate-FEVER evidence, and
+0.479 (0.862) when they are each claim's own sentences.
 
 **Why.** A classifier trained on PUBHEALTH learned which health-claim wordings tend to be true;
 none of that applies to climate claims. The LLM brings general knowledge from pretraining and
@@ -201,8 +206,10 @@ per claim on a 24 GB GPU.
 
 * TF-IDF, GloVe and prompted Qwen3-8B runs are deterministic (one run); the encoder numbers are
   3-seed means, with standard deviations of 0.01 to 0.03 on LIAR and PUBHEALTH, so differences
-  under about 0.02 are within seed noise. M3's significance tests (T31) have not been run on
-  the full predictions yet; once they are, use them before calling any difference real.
+  under about 0.02 are within seed noise. M3's significance tests (T31, 22 comparisons,
+  Holm-corrected) go further: on macro-F1 only DeBERTa-v3-large LoRA vs full fine-tuning on
+  PUBHEALTH is significant, so call every other gap in this document a difference in score,
+  not a proven improvement.
 * The probes in section 8 are five hand-written sentences: they illustrate the failure mode,
   they do not measure how often it happens.
 * "Weights" counts trainable parameters as logged; the calibrated SVMs log three times their
