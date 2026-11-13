@@ -329,45 +329,11 @@ def load_shortcut_scores_from_runs_csv(runs_csv_path: Path = RUNS_CSV) -> pd.Dat
     print(f"[T34] Reading benchmark scores from {runs_file}...")
     df_runs = pd.read_csv(runs_file)
 
-    if "variant" not in df_runs.columns or "model_name" not in df_runs.columns:
-        print("[T34 Warning] Required columns ('variant', 'model_name') missing in runs.csv.")
-        return pd.DataFrame()
+    # Test split only, each run's seeds averaged, each cleaned run paired with the same config
+    # on raw text (shared with the T42 shortcut chart, so both show the same numbers).
+    from factcheck.specs_table_t42 import paired_raw_clean
 
-    if "split" in df_runs.columns:
-        test_df = df_runs[df_runs["split"].isin(["test", "validation"])].copy()
-    else:
-        test_df = df_runs.copy()
-
-    raw_df = test_df[test_df["variant"].str.lower() == "raw"]
-    clean_df = test_df[test_df["variant"].str.lower() == "clean"]
-
-    raw_grouped = raw_df.groupby(["model_name", "dataset"])[["macro_f1", "accuracy"]].mean().reset_index()
-    clean_grouped = clean_df.groupby(["model_name", "dataset"])[["macro_f1", "accuracy"]].mean().reset_index()
-
-    merged = pd.merge(
-        raw_grouped,
-        clean_grouped,
-        on=["model_name", "dataset"],
-        suffixes=("_raw", "_clean")
-    )
-
-    if merged.empty:
-        return pd.DataFrame()
-
-    merged["accuracy_drop"] = merged["accuracy_raw"] - merged["accuracy_clean"]
-    merged["macro_f1_drop"] = merged["macro_f1_raw"] - merged["macro_f1_clean"]
-    merged["model"] = merged["model_name"].apply(lambda x: x.split("/")[-1]) + " (" + merged["dataset"].str.upper() + ")"
-
-    res = merged.rename(columns={
-        "accuracy_raw": "raw_accuracy",
-        "accuracy_clean": "cleaned_accuracy",
-        "macro_f1_raw": "raw_macro_f1",
-        "macro_f1_clean": "cleaned_macro_f1"
-    })
-    res["mean_prob_shift"] = 0.0
-    res["shortcut_shap_impact"] = 0.0
-
-    return res
+    return paired_raw_clean(df_runs)
 
 
 def run_shortcut_analysis(output_dir: Path = FIGURES_DIR) -> pd.DataFrame:
@@ -424,7 +390,6 @@ def run_shortcut_analysis(output_dir: Path = FIGURES_DIR) -> pd.DataFrame:
                 "cleaned_macro_f1": clean_f1,
                 "macro_f1_drop": raw_f1 - clean_f1,
                 "mean_prob_shift": prob_shift,
-                "shortcut_shap_impact": 0.0,
             })
         df = pd.DataFrame(results)
 

@@ -1,11 +1,11 @@
-Spec ID,Requirement,Target,Achieved,Context & Interpretation
-S1,Algorithms Explored,>= 2 Families,5 Families,"TF-IDF/SVM, Bi-LSTM, Encoders, LLMs, kNN"
-S2,COVID-19 Weighted F1,>= 0.95,0.986,High domain vocabulary alignment in COVID-Twitter-BERT
-S3,LIAR 6-Class Accuracy,>= 0.28,0.314 (6-Class),Outperforms Wang (2017) baseline (0.274); text-only multi-class capped
-S4,PUBHEALTH Macro-F1,>= 0.65,0.602 (4-Class),Class imbalance on unproven claims; evidence retrieval yields +0.058 gain
-S5,ISOT Clean Accuracy,>= 0.95,1.000,Evaluated on clean text without publisher dateline shortcuts
-S6,GPU Encoder Latency,<= 50 ms/claim,15.9 ms,Meets real-time triage constraints
-S7,App End-to-End Latency,<= 5.0 s/claim,0.12 s,Retrieval + 4-bit Qwen3-8B interactive execution
-S8,App VRAM Footprint,<= 8.0 GB,20.57 GB,Co-exists on consumer GPUs
-S9,Single Run GPU Budget,<= 6.0 hours,2.8 hours,Fits within single GPU cluster budget
-S10,Reproducibility,1 Command / YAML,Fully Scripted (502 runs),Executable configs with locked seed registry
+Spec ID,Requirement,Target,Achieved,Status,Source
+S1,Algorithms explored,>= 2 families,5,PASS,"classic, encoder, knn, llm, lstm"
+S2,"COVID-19 fake news, weighted F1",>= 0.95,0.981,PASS,covid_twitter_bert_covid (3 seeds)
+S3,"LIAR, 6-class test accuracy",>= 0.28,0.299,PASS,deberta_v3_large_lora_r4_all_liar (1 seed)
+S4,"PUBHEALTH, 4-class macro-F1",>= 0.65,0.562,FAIL,deberta_v3_base_pubhealth_tuned_evidence (3 seeds)
+S5,ISOT accuracy after removing source shortcuts,>= 0.95,1.000,PASS,qwen3_8b_qlora_isot (1 seed)
+S6,"Encoder inference latency on the laptop GPU, per claim",<= 50 ms,18 ms median (45 ms max),PASS,app on the laptop GPU (T40)
+S7,"Full app response (retrieval + LLM verdict) on the laptop, per claim",<= 5 s,0.16 s median (0.27 s max),PASS,app on the laptop GPU (T40)
+S8,"Demo memory, everything in the app on the GPU",<= 8 GB VRAM,5.6 GB,PASS,app on the laptop GPU (T40)
+S9,"Training cost, any single run on one cluster GPU",<= 6 h,2.76 h,PASS,worst: deberta_v3_large_isot_clean
+S10,"Reproducibility, every reported number re-runs from one config file and command","one config, one command",one YAML + one command per run,PASS,502 rows frozen as v1.0-results (T43)

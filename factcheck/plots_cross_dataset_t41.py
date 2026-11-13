@@ -9,6 +9,7 @@ Runs the entire Task T41 workflow in one step:
 from __future__ import annotations
 
 from pathlib import Path
+
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
@@ -46,7 +47,7 @@ def generate_cross_domain_heatmap() -> pd.DataFrame:
         annot=True,
         fmt=".3f",
         cmap="YlGnBu",
-        cbar_kws={"label": "Macro-F1 Score"},
+        cbar_kws={"label": "Binary Macro-F1 (fake vs real)"},
         linewidths=1.5,
         square=True,
     )
@@ -120,7 +121,7 @@ def generate_climate_fever_plot() -> tuple[float, float, float]:
             label = f"{yval:.3f}\n(Base)"
         else:
             delta = yval - zs
-            label = f"{yval:.3f}\n(+{delta:+.3f})"
+            label = f"{yval:.3f}\n({delta:+.3f})"
         
         ax.text(
             bar.get_x() + bar.get_width() / 2.0, 

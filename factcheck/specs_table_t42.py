@@ -9,6 +9,7 @@ Dynamically parses evaluation logs from results/runs.csv to generate:
 from __future__ import annotations
 
 from pathlib import Path
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -26,6 +27,7 @@ def load_runs_data() -> pd.DataFrame:
     Raises FileNotFoundError if runs.csv is missing to strictly prevent hardcoded fallback numbers.
     """
     candidate_paths = [
+        RESULTS_DIR / "final" / "runs_final.csv",  # the frozen results (T43)
         RESULTS_DIR / "runs.csv",
         Path("results/runs.csv"),
         Path("runs.csv"),
@@ -43,42 +45,42 @@ def load_runs_data() -> pd.DataFrame:
     return pd.read_csv(runs_file)
 
 
-def generate_model_ladder_metrics(df_runs: pd.DataFrame) -> pd.DataFrame:
-    """Extracts mean Macro-F1 scores and seed standard deviations per model architecture across datasets."""
-    eval_df = df_runs[df_runs["split"].isin(["test", "validation"])].copy()
-    datasets = ["covid", "liar", "pubhealth", "isot"]
-    
-    ladder_rows = []
-    
-    for ds in datasets:
-        ds_runs = eval_df[eval_df["dataset"].str.lower() == ds].copy()
-        if ds_runs.empty:
-            continue
-            
-        # 1. TF-IDF + LR Baseline
-        tfidf_runs = ds_runs[ds_runs["model_name"].str.lower() == "tfidf"]
-        tf_f1 = float(tfidf_runs["macro_f1"].mean()) if not tfidf_runs.empty else 0.0
-        tf_std = float(tfidf_runs["macro_f1"].std()) if len(tfidf_runs) > 1 else 0.0
-        ladder_rows.append({"model": "TF-IDF + LR", "dataset": ds.upper(), "macro_f1": tf_f1, "std": tf_std})
-        
-        # 2. Bi-LSTM Architecture
-        bilstm_runs = ds_runs[ds_runs["model_name"].str.lower() == "bilstm-glove300"]
-        if bilstm_runs.empty:
-            bilstm_runs = ds_runs[ds_runs["family"] == "lstm"]
-        bi_f1 = float(bilstm_runs["macro_f1"].mean()) if not bilstm_runs.empty else 0.0
-        bi_std = float(bilstm_runs["macro_f1"].std()) if len(bilstm_runs) > 1 else 0.0
-        ladder_rows.append({"model": "Bi-LSTM", "dataset": ds.upper(), "macro_f1": bi_f1, "std": bi_std})
-        
-        # 3. DeBERTa-v3 Base Model
-        deb_runs = ds_runs[ds_runs["model_name"].str.lower() == "microsoft/deberta-v3-base"]
-        deb_f1 = float(deb_runs["macro_f1"].mean()) if not deb_runs.empty else 0.0
-        deb_std = float(deb_runs["macro_f1"].std()) if len(deb_runs) > 1 else 0.0
-        ladder_rows.append({"model": "DeBERTa-v3 Base", "dataset": ds.upper(), "macro_f1": deb_f1, "std": deb_std})
-        
-        # 4. Best Domain Model (Max Macro-F1 achieved on dataset split)
-        best_f1 = float(ds_runs["macro_f1"].max())
-        ladder_rows.append({"model": "Best Domain Model", "dataset": ds.upper(), "macro_f1": best_f1, "std": 0.002})
+MAIN_VARIANT = {"isot": "clean"}  # the variant results are reported on (others: raw)
 
+
+def run_scores(df_runs: pd.DataFrame, metric: str = "macro_f1") -> pd.DataFrame:
+    """Test score per run: mean and standard deviation over its seeds (final runs only)."""
+    test = df_runs[(df_runs["split"] == "test") & df_runs["subset"].isna()]
+    return (
+        test.groupby(["run_name", "dataset", "variant", "family"])[metric]
+        .agg(mean="mean", std="std", seeds="count")
+        .reset_index()
+        .fillna({"std": 0.0})
+    )
+
+
+def generate_model_ladder_metrics(df_runs: pd.DataFrame) -> pd.DataFrame:
+    """Test macro-F1 (mean over seeds, error bar = seed std) of the ladder's rungs per dataset."""
+    scores = run_scores(df_runs)
+    ladder_rows = []
+    for ds in ["covid", "liar", "pubhealth", "isot"]:
+        suffix = "_clean" if MAIN_VARIANT.get(ds) == "clean" else ""
+        main = scores[(scores["dataset"] == ds) & (scores["variant"] == MAIN_VARIANT.get(ds, "raw"))]
+        rungs = {
+            "1 TF-IDF + LR": f"tfidf_lr_{ds}{suffix}",
+            "2 Bi-LSTM": f"lstm_{ds}",
+            "3 DeBERTa-v3-base": f"deberta_v3_base_{ds}{suffix}",
+        }
+        for model, run in rungs.items():
+            row = main[main["run_name"] == run]
+            if not row.empty:  # no Bi-LSTM was trained on ISOT
+                ladder_rows.append({"model": model, "dataset": ds.upper(),
+                                    "macro_f1": float(row["mean"].iloc[0]),
+                                    "std": float(row["std"].iloc[0])})  # fmt: skip
+        best = main.loc[main["mean"].idxmax()]
+        ladder_rows.append({"model": "4 Best run (any model)", "dataset": ds.upper(),
+                            "macro_f1": float(best["mean"]), "std": float(best["std"])})  # fmt: skip
+        print(f"  {ds}: best run {best['run_name']} ({best['mean']:.3f}, {best['seeds']} seeds)")
     return pd.DataFrame(ladder_rows)
 
 
@@ -97,7 +99,7 @@ def plot_dynamic_model_ladder(df_runs: pd.DataFrame) -> None:
 
     pivot_mean.plot(
         kind="bar",
-        yerr=pivot_std,
+        yerr=pivot_std.fillna(0.0),
         ax=ax,
         color=colors[:len(pivot_mean.columns)],
         width=0.75,
@@ -106,7 +108,7 @@ def plot_dynamic_model_ladder(df_runs: pd.DataFrame) -> None:
         linewidth=0.5
     )
 
-    ax.set_title("E1 Main Comparison: Macro-F1 Across Model Families & Datasets", fontsize=12, fontweight="bold", pad=12)
+    ax.set_title("E1 Main Comparison: Test Macro-F1 (Mean Over Seeds) Across the Ladder", fontsize=12, fontweight="bold", pad=12)
     ax.set_ylabel("Macro-F1 Score", fontsize=11)
     ax.set_xlabel("Dataset Domain", fontsize=11)
     ax.set_ylim(0.0, 1.05)
@@ -120,27 +122,47 @@ def plot_dynamic_model_ladder(df_runs: pd.DataFrame) -> None:
     print(f"  [Saved] Model ladder chart -> {out_path}", flush=True)
 
 
+def paired_raw_clean(df_runs: pd.DataFrame) -> pd.DataFrame:
+    """Each run trained on cleaned text next to the same config on raw text (test, seeds averaged).
+
+    Pairs by run name (``x_isot_clean`` with ``x_isot_raw``, ``x_covid_clean`` with ``x_covid``),
+    so a model is only ever compared with itself.
+    """
+    acc, f1 = run_scores(df_runs, "accuracy"), run_scores(df_runs, "macro_f1")
+    both = acc.merge(f1, on=["run_name", "dataset", "variant", "family"], suffixes=("_acc", "_f1"))
+    by_name = both.set_index("run_name")
+    rows = []
+    for _, clean in both[both["variant"] == "clean"].iterrows():
+        name = clean["run_name"]
+        for raw_name in (name.replace("_clean", "_raw"), name.replace("_clean", "")):
+            if raw_name == name or raw_name not in by_name.index:
+                continue
+            raw = by_name.loc[raw_name]
+            if raw["variant"] != "raw":
+                continue
+            rows.append({
+                "model": f"{name.replace('_clean', '')} ({clean['dataset'].upper()})",
+                "dataset": clean["dataset"],
+                "raw_run": raw_name, "clean_run": name,
+                "raw_accuracy": raw["mean_acc"], "cleaned_accuracy": clean["mean_acc"],
+                "raw_macro_f1": raw["mean_f1"], "cleaned_macro_f1": clean["mean_f1"],
+                "accuracy_drop": raw["mean_acc"] - clean["mean_acc"],
+                "macro_f1_drop": raw["mean_f1"] - clean["mean_f1"],
+                "seeds_raw": int(raw["seeds_acc"]), "seeds_clean": int(clean["seeds_acc"]),
+            })  # fmt: skip
+            break
+    return pd.DataFrame(rows)
+
+
 def plot_dynamic_shortcut_study(df_runs: pd.DataFrame) -> None:
     """Figure 4 (E7): Dynamic Raw vs. Cleaned Shortcut Learning Comparison."""
-    # Filter paired raw vs clean evaluations from runs.csv
-    test_df = df_runs[df_runs["split"].isin(["test", "validation"])].copy()
-    
-    raw_df = test_df[test_df["variant"].str.lower() == "raw"]
-    clean_df = test_df[test_df["variant"].str.lower() == "clean"]
-    
-    raw_grp = raw_df.groupby(["model_name", "dataset"])["accuracy"].mean().reset_index()
-    clean_grp = clean_df.groupby(["model_name", "dataset"])["accuracy"].mean().reset_index()
-    
-    merged = pd.merge(raw_grp, clean_grp, on=["model_name", "dataset"], suffixes=("_raw", "_clean"))
-    
+    merged = paired_raw_clean(df_runs)
     if merged.empty:
         raise ValueError("No paired raw vs clean evaluation runs found in runs.csv for shortcut study.")
-        
-    merged["model"] = merged["model_name"].apply(lambda x: x.split("/")[-1]) + " (" + merged["dataset"].str.upper() + ")"
-    
+
     models = merged["model"].tolist()
-    raw_acc = merged["accuracy_raw"].tolist()
-    clean_acc = merged["accuracy_clean"].tolist()
+    raw_acc = merged["raw_accuracy"].tolist()
+    clean_acc = merged["cleaned_accuracy"].tolist()
 
     x = np.arange(len(models))
     width = 0.35
@@ -150,7 +172,7 @@ def plot_dynamic_shortcut_study(df_runs: pd.DataFrame) -> None:
     rects1 = ax.bar(x - width/2, raw_acc, width, label="Raw Text (With Shortcuts)", color="#e74c3c", edgecolor="black")
     rects2 = ax.bar(x + width/2, clean_acc, width, label="Cleaned Text (No Shortcuts)", color="#2ecc71", edgecolor="black")
 
-    ax.set_title("E7 Shortcut Study: Model Accuracy on Raw vs. Cleaned Text", fontsize=12, fontweight="bold", pad=12)
+    ax.set_title("E7 Shortcut Study: Test Accuracy on Raw vs. Cleaned Text (Mean Over Seeds)", fontsize=12, fontweight="bold", pad=12)
     ax.set_ylabel("Accuracy", fontsize=11)
     ax.set_xticks(x)
     ax.set_xticklabels(models, rotation=15, ha="right")
@@ -169,62 +191,27 @@ def plot_dynamic_shortcut_study(df_runs: pd.DataFrame) -> None:
     print(f"  [Saved] Shortcut study chart -> {out_path}", flush=True)
 
 
+# Specs measured by hand in the app on the laptop (T40, RTX 5060 8 GB, encoder + Qwen3-8B +
+# retrieval loaded; contribution log 2026-11-06). runs.csv cannot give these: its latency and
+# memory come from test scoring and training on the GPU servers.
+HAND_MEASURED = {
+    "S6": ("18 ms median (45 ms max)", "PASS", "app on the laptop GPU (T40)"),
+    "S7": ("0.16 s median (0.27 s max)", "PASS", "app on the laptop GPU (T40)"),
+    "S8": ("5.6 GB", "PASS", "app on the laptop GPU (T40)"),
+    "S10": ("one YAML + one command per run", "PASS", "502 rows frozen as v1.0-results (T43)"),
+}
+
+
 def generate_dynamic_specs_table(df_runs: pd.DataFrame) -> pd.DataFrame:
-    """Generates Specifications Context Table by dynamically calculating metrics from runs.csv."""
-    eval_df = df_runs[df_runs["split"].isin(["test", "validation"])].copy()
+    """Specs S1 to S10: S1-S5 and S9 from the test split by ``check_specs`` (each config's seeds
+    averaged, then the best config); S6-S8 and S10 as measured by hand (``HAND_MEASURED``)."""
+    from factcheck.evaluate import check_specs
 
-    # S1: Model families explored
-    families_count = len(df_runs["family"].unique()) if "family" in df_runs.columns else 4
-    
-    # S2: Best COVID metric
-    covid_test = eval_df[eval_df["dataset"].str.lower() == "covid"]
-    covid_wf1 = float(covid_test["weighted_f1"].max()) if ("weighted_f1" in covid_test.columns and covid_test["weighted_f1"].notna().any()) else float(covid_test["macro_f1"].max())
-
-    # S3: LIAR Accuracy
-    liar_test = eval_df[eval_df["dataset"].str.lower() == "liar"]
-    liar_acc = float(liar_test["accuracy"].max())
-
-    # S4: PUBHEALTH Macro-F1
-    pub_test = eval_df[eval_df["dataset"].str.lower() == "pubhealth"]
-    pub_f1 = float(pub_test["macro_f1"].max())
-
-    # S5: ISOT Clean Accuracy
-    isot_clean = eval_df[(eval_df["dataset"].str.lower() == "isot") & (eval_df["variant"].str.lower() == "clean")]
-    isot_acc = float(isot_clean["accuracy"].max()) if not isot_clean.empty else 0.9996
-
-    # S6: Encoder latency (ms)
-    enc_runs = eval_df[eval_df["family"] == "encoder"] if "family" in eval_df.columns else eval_df
-    enc_lat = float(enc_runs["latency_ms"].mean()) if ("latency_ms" in enc_runs.columns and enc_runs["latency_ms"].notna().any()) else 15.9
-
-    # S7: LLM End-to-End latency (s)
-    llm_runs = eval_df[eval_df["family"] == "llm"] if "family" in eval_df.columns else eval_df
-    llm_lat = float(llm_runs["latency_ms"].mean()) / 1000.0 if ("latency_ms" in llm_runs.columns and llm_runs["latency_ms"].notna().any()) else 0.12
-
-    # S8: Peak VRAM footprint (GB)
-    vram_mb = float(df_runs["peak_gpu_mem_mb"].max()) if ("peak_gpu_mem_mb" in df_runs.columns and df_runs["peak_gpu_mem_mb"].notna().any()) else 5939.0
-    vram_gb = vram_mb / 1024.0
-
-    # S9: Single run GPU train budget (hours)
-    train_sec = float(df_runs["train_seconds"].max()) if ("train_seconds" in df_runs.columns and df_runs["train_seconds"].notna().any()) else 7920.0
-    train_hr = train_sec / 3600.0
-
-    # S10: Reproducibility total runs logged
-    total_runs = len(df_runs)
-
-    specs_data = [
-        {"Spec ID": "S1", "Requirement": "Algorithms Explored", "Target": ">= 2 Families", "Achieved": f"{families_count} Families", "Context & Interpretation": "TF-IDF/SVM, Bi-LSTM, Encoders, LLMs, kNN"},
-        {"Spec ID": "S2", "Requirement": "COVID-19 Weighted F1", "Target": ">= 0.95", "Achieved": f"{covid_wf1:.3f}", "Context & Interpretation": "High domain vocabulary alignment in COVID-Twitter-BERT"},
-        {"Spec ID": "S3", "Requirement": "LIAR 6-Class Accuracy", "Target": ">= 0.28", "Achieved": f"{liar_acc:.3f} (6-Class)", "Context & Interpretation": "Outperforms Wang (2017) baseline (0.274); text-only multi-class capped"},
-        {"Spec ID": "S4", "Requirement": "PUBHEALTH Macro-F1", "Target": ">= 0.65", "Achieved": f"{pub_f1:.3f} (4-Class)", "Context & Interpretation": "Class imbalance on unproven claims; evidence retrieval yields +0.058 gain"},
-        {"Spec ID": "S5", "Requirement": "ISOT Clean Accuracy", "Target": ">= 0.95", "Achieved": f"{isot_acc:.3f}", "Context & Interpretation": "Evaluated on clean text without publisher dateline shortcuts"},
-        {"Spec ID": "S6", "Requirement": "GPU Encoder Latency", "Target": "<= 50 ms/claim", "Achieved": f"{enc_lat:.1f} ms", "Context & Interpretation": "Meets real-time triage constraints"},
-        {"Spec ID": "S7", "Requirement": "App End-to-End Latency", "Target": "<= 5.0 s/claim", "Achieved": f"{llm_lat:.2f} s", "Context & Interpretation": "Retrieval + 4-bit Qwen3-8B interactive execution"},
-        {"Spec ID": "S8", "Requirement": "App VRAM Footprint", "Target": "<= 8.0 GB", "Achieved": f"{vram_gb:.2f} GB", "Context & Interpretation": "Co-exists on consumer GPUs"},
-        {"Spec ID": "S9", "Requirement": "Single Run GPU Budget", "Target": "<= 6.0 hours", "Achieved": f"{train_hr:.1f} hours", "Context & Interpretation": "Fits within single GPU cluster budget"},
-        {"Spec ID": "S10", "Requirement": "Reproducibility", "Target": "1 Command / YAML", "Achieved": f"Fully Scripted ({total_runs} runs)", "Context & Interpretation": "Executable configs with locked seed registry"},
-    ]
-    
-    df_specs = pd.DataFrame(specs_data)
+    specs = check_specs(df_runs)
+    for spec_id, (value, status, source) in HAND_MEASURED.items():
+        specs.loc[specs["id"] == spec_id, ["value", "status", "source"]] = [value, status, source]
+    df_specs = specs.rename(columns={"id": "Spec ID", "spec": "Requirement", "target": "Target",
+                                     "value": "Achieved", "status": "Status", "source": "Source"})  # fmt: skip
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     specs_csv = RESULTS_DIR / "t42_specs_context_table.csv"
     df_specs.to_csv(specs_csv, index=False)
@@ -234,22 +221,15 @@ def generate_dynamic_specs_table(df_runs: pd.DataFrame) -> pd.DataFrame:
 
 def print_clean_specs_table(df: pd.DataFrame) -> None:
     """Formats the specifications table with fixed field widths to prevent terminal column collisions."""
-    headers = ["Spec ID", "Requirement", "Target", "Achieved", "Context & Interpretation"]
-    widths = [8, 24, 18, 30, 65]
+    headers = ["Spec ID", "Requirement", "Target", "Achieved", "Status", "Source"]
+    widths = [8, 80, 24, 32, 8, 50]
     
-    header_str = "".join([f"{h:<{w}}" for h, w in zip(headers, widths)])
+    header_str = "".join([f"{h:<{w}}" for h, w in zip(headers, widths, strict=False)])
     print(header_str, flush=True)
     print("-" * sum(widths), flush=True)
     
     for _, row in df.iterrows():
-        print(
-            f"{row['Spec ID']:<8}"
-            f"{row['Requirement']:<24}"
-            f"{row['Target']:<18}"
-            f"{row['Achieved']:<30}"
-            f"{row['Context & Interpretation']:<65}",
-            flush=True
-        )
+        print("".join(f"{str(row[h]):<{w}}" for h, w in zip(headers, widths, strict=False)), flush=True)
 
 
 def main() -> None:
