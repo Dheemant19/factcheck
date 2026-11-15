@@ -2,6 +2,8 @@
 
 EE6405 Natural Language Processing group project (team of 5, NTU, November 2026).
 
+Code: https://github.com/Dheemant19/factcheck
+
 We compare traditional NLP, recurrent networks, transformer encoders and an 8B LLM on four
 misinformation datasets. We then work out **why** each model decides what it decides: top
 words, SHAP, LDA topics, shortcut removal, calibration, cross-dataset tests and significance
